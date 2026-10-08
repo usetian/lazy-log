@@ -11,31 +11,28 @@ license: MIT
 Skill ini secara otomatis merangkum aktivitas coding developer dan mengisinya ke Google Spreadsheets kantor sesuai format standar:
 - **Tabsheet Bulanan:** Otomatis memilih tab bulan berjalan (misal: `Oktober 2026`).
 - **Pemisah Harian:** Menambahkan baris merah/maroon dengan tanggal hari ini (`DD/MM/YYYY`) di awal hari baru, serta garis batas bawah.
-- **24 Kolom Standar Kantor:**
+- **21 Kolom Standar Kantor Presisi:**
   1. `Task ID` (Default: `"Non Task"` jika tidak ada tiket Jira/Trello)
   2. `Status` (`Done`, `In Progress`, dll.)
   3. `Project` (Nama repo/project)
-  4. `Platform` (`Web`, `Mobile`, `Backend`, `API`, dll.)
-  5. `Task Type` (`Feature`, `Bugfix`, `Refactor`, `Testing`)
-  6. `Role` (Default: `Developer` / Frontend / Backend)
-  7. `Menu` (Modul aplikasi yang dikerjakan)
-  8. `Submenu` (Sub-modul)
-  9. `Task Title` (Judul pekerjaan)
-  10. `Breakdown Task` (Detail pekerjaan yang telah diselesaikan)
-  11. `Yang akan Dilakukan dan Perlu Dilakukan` (Rencana/langkah kerja)
-  12. `Ask to` (`-`)
-  13. `Question` (`-`)
-  14. `Lama Pengerjaan (Estimasi)` (misal: `2 Jam`)
-  15. `Hari, Tanggal dan Pukul` (Estimasi selesai)
-  16. `Mulai` (Jam mulai, format `HH:mm`)
-  17. `Selesai` (Jam selesai, format `HH:mm`)
-  18. `Lama Pengerjaan (Aktual)`
-  19. `Late` (Dikosongkan / otomatis formula sheet)
-  20. `Earlier` (Dikosongkan / otomatis formula sheet)
-  21. `Why` (Alasan jika durasi berbeda, default `-`)
-  22. `Technical` (Kendala teknis atau error yang dihadapi selama coding, default `-`)
-  23. `Collaboration` (Kendala koordinasi, default `-`)
-  24. `Other` (Kendala lainnya, default `-`)
+  4. `Menu` (Modul aplikasi yang dikerjakan)
+  5. `Task Title` (Judul pekerjaan)
+  6. `Task Type` (`Feature`, `Bugfix`, `Refactor`, `Testing`)
+  7. `Breakdown Task` (Detail pekerjaan yang telah diselesaikan)
+  8. `Yang akan Dilakukan dan Perlu Dilakukan` (Rencana/langkah kerja)
+  9. `Ask to` (`-`)
+  10. `Question` (`-`)
+  11. `Lama Pengerjaan (Estimasi)` (misal: `2 Jam`)
+  12. `Hari, Tanggal dan Pukul` (Estimasi selesai)
+  13. `Mulai` (Jam mulai, format `HH:mm`)
+  14. `Selesai` (Jam selesai, format `HH:mm`)
+  15. `Lama Pengerjaan (Aktual)`
+  16. `Late` (Dikosongkan / otomatis formula sheet)
+  17. `Earlier` (Dikosongkan / otomatis formula sheet)
+  18. `Why` (Alasan jika durasi berbeda, default `-`)
+  19. `Technical` (Kendala teknis atau error yang dihadapi selama coding, default `-`)
+  20. `Collaboration` (Kendala koordinasi, default `-`)
+  21. `Other` (Kendala lainnya, default `-`)
 
 ## Cara Eksekusi
 
