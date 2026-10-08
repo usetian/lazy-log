@@ -291,11 +291,11 @@ function mapPayloadToRow(headers, payload, rowNum) {
     } else if (h.includes("late")) {
       const act = actualDurationColLetter || 'O';
       const est = estDurationColLetter || 'K';
-      row.push(`=IF(${act}${rowNum}>${est}${rowNum}, ${act}${rowNum}-${est}${rowNum}, "-")`);
+      row.push(`=IF(AND(${act}${rowNum}>${est}${rowNum};${act}${rowNum}>0);${act}${rowNum}-${est}${rowNum};"")`);
     } else if (h.includes("earlier")) {
       const act = actualDurationColLetter || 'O';
       const est = estDurationColLetter || 'K';
-      row.push(`=IF(AND(ISNUMBER(${act}${rowNum}), ${act}${rowNum}<${est}${rowNum}, ${act}${rowNum}>0), ${est}${rowNum}-${act}${rowNum}, "-")`);
+      row.push(`=IF(AND(${est}${rowNum}>${act}${rowNum};${act}${rowNum}>0);${est}${rowNum}-${act}${rowNum};"")`);
     } else if (h.includes("why")) {
       row.push(payload.why || "-");
     } else if (h.includes("technical")) {
