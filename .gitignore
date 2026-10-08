@@ -1,0 +1,16 @@
+# Local sensitive configurations
+config.json
+.env
+*.env
+
+# Local logs and backups
+.local_history.jsonl
+*.log
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# OS files
+.DS_Store
+Thumbs.db
