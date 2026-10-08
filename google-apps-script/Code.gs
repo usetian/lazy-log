@@ -335,13 +335,19 @@ function doPost(e) {
 
     const isOverwrite = (payload.overwrite === true || payload.overwrite === "true");
 
-    // 1. Cari baris tanggal pembatas (Merah/Maroon)
+    // 1. Cari baris tanggal pembatas (Merah/Maroon) menggunakan getDisplayValues & getValues
     let dateHeaderRow = null;
     if (lastRow >= 4) {
-      const colAValues = sheet.getRange(4, 1, lastRow - 3, 1).getValues();
-      for (let i = 0; i < colAValues.length; i++) {
-        const val = colAValues[i][0];
-        if (val && String(val).trim() === todayStr) {
+      const colARaw = sheet.getRange(4, 1, lastRow - 3, 1).getValues();
+      const colADisp = sheet.getRange(4, 1, lastRow - 3, 1).getDisplayValues();
+      for (let i = 0; i < colARaw.length; i++) {
+        const raw = colARaw[i][0];
+        const disp = String(colADisp[i][0] || "").trim();
+        let strVal = disp;
+        if (raw instanceof Date) {
+          strVal = formatDateIndo(raw);
+        }
+        if (strVal === todayStr || disp === todayStr) {
           dateHeaderRow = 4 + i;
           break;
         }
@@ -352,10 +358,16 @@ function doPost(e) {
     if (isOverwrite && dateHeaderRow !== null) {
       let nextDateRow = lastRow + 1;
       if (lastRow > dateHeaderRow) {
-        const colAAll = sheet.getRange(dateHeaderRow + 1, 1, lastRow - dateHeaderRow, 1).getValues();
-        for (let i = 0; i < colAAll.length; i++) {
-          const val = String(colAAll[i][0] || "").trim();
-          if (/^\d{2}\/\d{2}\/\d{4}$/.test(val)) {
+        const colAAllRaw = sheet.getRange(dateHeaderRow + 1, 1, lastRow - dateHeaderRow, 1).getValues();
+        const colAAllDisp = sheet.getRange(dateHeaderRow + 1, 1, lastRow - dateHeaderRow, 1).getDisplayValues();
+        for (let i = 0; i < colAAllRaw.length; i++) {
+          const raw = colAAllRaw[i][0];
+          const disp = String(colAAllDisp[i][0] || "").trim();
+          let strVal = disp;
+          if (raw instanceof Date) {
+            strVal = formatDateIndo(raw);
+          }
+          if (/^\d{2}\/\d{2}\/\d{4}$/.test(strVal)) {
             nextDateRow = dateHeaderRow + 1 + i;
             break;
           }
@@ -366,7 +378,7 @@ function doPost(e) {
       let targetRowToUpdate = null;
 
       if (taskRowsCount > 0) {
-        const taskData = sheet.getRange(dateHeaderRow + 1, 1, taskRowsCount, totalColsInSheet).getValues();
+        const taskData = sheet.getRange(dateHeaderRow + 1, 1, taskRowsCount, totalColsInSheet).getDisplayValues();
         const reqTaskId = (payload.task_id || "").trim();
         const reqTaskTitle = (payload.task || payload.task_title || "").trim().toLowerCase();
 
@@ -390,8 +402,8 @@ function doPost(e) {
           }
         }
 
-        // Jika hanya ada 1 task di hari itu, langsung timpa baris tersebut
-        if (matchedIdx === -1 && taskData.length === 1) {
+        // Jika tidak ada yang cocok tapi ada task di hari itu, langsung timpa baris pertama di hari itu
+        if (matchedIdx === -1 && taskData.length > 0) {
           matchedIdx = 0;
         }
 
