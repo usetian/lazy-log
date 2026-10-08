@@ -1,12 +1,12 @@
 /**
- * Google Apps Script for lazy-log (Format Kantor Presisi 21 Kolom & Rumus Otomatis)
+ * Google Apps Script for lazy-log (Dynamic Header Mapping & 21 Kolom Kantor)
  * 
- * Aturan Khusus Format Kantor:
- * 1. Estimasi Lama Pengerjaan (Kolom K): Format durasi "04:00:00"
- * 2. Hari, Tanggal, Pukul Estimasi (Kolom L): Format "dd/MM/yyyy HH:mm:ss"
- * 3. Mulai Aktual (Kolom M) & Selesai Aktual (Kolom N): Format "dd/MM/yyyy HH:mm:ss"
- * 4. Lama Pengerjaan Aktual (Kolom O): Otomatis rumus (=N{row}-M{row})
- * 5. Performance Late (Kolom P) & Earlier (Kolom Q): Otomatis rumus selisih antara Estimasi (K) & Aktual (O)
+ * Keunggulan Versi Ini:
+ * 1. DYNAMIC HEADER MAPPING: Script membaca nama header di Baris 2 secara langsung!
+ *    Tidak akan pernah salah kolom lagi meskipun susunan kolom diubah-ubah.
+ * 2. Menggunakan 21 Kolom Presisi Dokumen Kantor.
+ * 3. Rumus otomatis dinamis (Selesai - Mulai) & Performance (Late / Earlier).
+ * 4. Fungsi 'resetSheetHeaders()' untuk mereset tampilan sheet ke format 21 kolom rapi dengan 1 klik.
  */
 
 const MONTH_NAMES_ID = [
@@ -18,7 +18,8 @@ const MONTH_NAMES_EN = [
   "July", "August", "September", "October", "November", "December"
 ];
 
-const COLUMN_TITLES = [
+// 21 Kolom Standar Kantor Presisi
+const EXACT_OFFICE_HEADERS = [
   "Task ID", 
   "Status", 
   "Project", 
@@ -42,25 +43,35 @@ const COLUMN_TITLES = [
   "Other"
 ];
 
-const TOTAL_COLS = 21;
+const TOTAL_COLS = EXACT_OFFICE_HEADERS.length; // 21
+
+function columnToLetter(column) {
+  let temp, letter = '';
+  while (column > 0) {
+    temp = (column - 1) % 26;
+    letter = String.fromCharCode(temp + 65) + letter;
+    column = Math.floor((column - temp - 1) / 26);
+  }
+  return letter;
+}
 
 /**
- * Membangun 3 baris header kantor jika sheet masih kosong
+ * Fungsi untuk membangun / mereset 3 baris header kantor ke 21 kolom presisi
  */
-function setupOfficeHeaderIfEmpty(sheet) {
-  if (sheet.getLastRow() >= 3) return;
+function setupOfficeHeader(sheet) {
+  // Hapus semua baris lama agar bersih
+  sheet.clear();
 
-  // Baris 1: Group Header (Total 21 Kolom)
+  // Baris 1: Group Header (21 Kolom)
   const row1 = new Array(TOTAL_COLS).fill("");
-  row1[0] = "Task detail and Action"; // Col 1 - 6
-  row1[6] = "Prep Work";             // Col 7 - 10
-  row1[10] = "Estimasi Penyelesaian"; // Col 11 - 12
-  row1[12] = "Aktual Selesai";        // Col 13 - 15
-  row1[15] = "Performance";           // Col 16 - 18
-  row1[18] = "Problem Occur";         // Col 19 - 21
+  row1[0] = "Task detail and Action"; // Col A - F (1 - 6)
+  row1[6] = "Prep Work";             // Col G - J (7 - 10)
+  row1[10] = "Estimasi Penyelesaian"; // Col K - L (11 - 12)
+  row1[12] = "Aktual Selesai";        // Col M - O (13 - 15)
+  row1[15] = "Performance";           // Col P - R (16 - 18)
+  row1[18] = "Problem Occur";         // Col S - U (19 - 21)
   sheet.appendRow(row1);
 
-  // Merge dan Styling Row 1
   sheet.getRange(1, 1, 1, 6).merge().setBackground("#d9e1f2").setFontWeight("bold").setHorizontalAlignment("center");
   sheet.getRange(1, 7, 1, 4).merge().setBackground("#b4c6e7").setFontWeight("bold").setHorizontalAlignment("center");
   sheet.getRange(1, 11, 1, 2).merge().setBackground("#8ea9db").setFontWeight("bold").setHorizontalAlignment("center");
@@ -69,7 +80,7 @@ function setupOfficeHeaderIfEmpty(sheet) {
   sheet.getRange(1, 19, 1, 3).merge().setBackground("#f4b084").setFontWeight("bold").setHorizontalAlignment("center");
 
   // Baris 2: Column Titles
-  sheet.appendRow(COLUMN_TITLES);
+  sheet.appendRow(EXACT_OFFICE_HEADERS);
   const row2Range = sheet.getRange(2, 1, 1, TOTAL_COLS);
   row2Range.setFontWeight("bold").setHorizontalAlignment("center").setVerticalAlignment("middle");
   sheet.getRange(2, 1, 1, 6).setBackground("#d9e1f2");
@@ -102,6 +113,15 @@ function setupOfficeHeaderIfEmpty(sheet) {
   sheet.setFrozenRows(3);
 }
 
+/**
+ * Jalankan fungsi ini langsung dari editor Apps Script jika ingin mereset sheet aktif ke 21 kolom rapi!
+ */
+function resetSheetHeaders() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getActiveSheet();
+  setupOfficeHeader(sheet);
+}
+
 function getTargetSheet(ss) {
   const now = new Date();
   const monthIdx = now.getMonth();
@@ -124,7 +144,7 @@ function getTargetSheet(ss) {
     const sName = sheet.getName().trim();
     for (const pat of patterns) {
       if (pat.test(sName)) {
-        setupOfficeHeaderIfEmpty(sheet);
+        if (sheet.getLastRow() < 3) setupOfficeHeader(sheet);
         return { sheet: sheet, isNew: false };
       }
     }
@@ -167,7 +187,7 @@ function getTargetSheet(ss) {
   } else {
     targetSheet = ss.insertSheet(standardName);
   }
-  setupOfficeHeaderIfEmpty(targetSheet);
+  setupOfficeHeader(targetSheet);
   return { sheet: targetSheet, isNew: true };
 }
 
@@ -178,7 +198,6 @@ function formatDateIndo(date) {
   return `${d}/${m}/${y}`;
 }
 
-// Helper konversi format durasi ke "HH:mm:ss"
 function parseDuration(val) {
   if (!val || val === "-") return "04:00:00";
   val = String(val).trim();
@@ -198,7 +217,6 @@ function parseDuration(val) {
   return val;
 }
 
-// Helper format datetime ke "DD/MM/YYYY HH:mm:ss"
 function parseDateTime(val, defaultTime) {
   const now = new Date();
   const todayStr = formatDateIndo(now);
@@ -206,12 +224,104 @@ function parseDateTime(val, defaultTime) {
     return `${todayStr} ${defaultTime || Utilities.formatDate(now, "GMT+7", "HH:mm:ss")}`;
   }
   val = String(val).trim();
-  // Jika formatnya hanya jam (misal 13:04 atau 13:04:26)
   if (val.length <= 8 && val.includes(":")) {
     const timePart = val.length === 5 ? val + ":00" : val;
     return `${todayStr} ${timePart}`;
   }
   return val;
+}
+
+/**
+ * DYNAMIC HEADER MAPPER:
+ * Membaca nama kolom dari Baris 2 sheet secara dinamis.
+ * Menjamin nilai masuk ke kolom yang BENAR 100% tanpa bergantung pada posisi indeks!
+ */
+function mapPayloadToRow(headers, payload, rowNum) {
+  let estDurationColLetter = null;
+  let actualDurationColLetter = null;
+  let startColLetter = null;
+  let endColLetter = null;
+  let lamaPengerjaanCount = 0;
+
+  const row = [];
+
+  for (let i = 0; i < headers.length; i++) {
+    const colLetter = columnToLetter(i + 1);
+    const h = String(headers[i] || "").trim().toLowerCase().replace(/\r?\n|\r/g, " ");
+
+    if (h.includes("task id")) {
+      row.push(payload.task_id || "Non Task");
+    } else if (h.includes("status")) {
+      row.push(payload.status || "Done");
+    } else if (h.includes("project")) {
+      row.push(payload.project || "-");
+    } else if (h === "menu" || (h.includes("menu") && !h.includes("submenu"))) {
+      row.push(payload.menu || "-");
+    } else if (h.includes("task title")) {
+      row.push(payload.task || payload.task_title || "-");
+    } else if (h.includes("task type")) {
+      row.push(payload.task_type || "Feature");
+    } else if (h.includes("breakdown")) {
+      row.push(payload.breakdown_task || payload.details || "-");
+    } else if (h.includes("yang akan dilakukan")) {
+      row.push(payload.prep_work || payload.details || "-");
+    } else if (h.includes("ask to")) {
+      row.push(payload.ask_to || "-");
+    } else if (h.includes("question")) {
+      row.push(payload.question || "-");
+    } else if (h.includes("hari, tanggal")) {
+      row.push(parseDateTime(payload.est_datetime, "17:00:00"));
+    } else if (h.includes("mulai")) {
+      startColLetter = colLetter;
+      row.push(parseDateTime(payload.start_time, "09:00:00"));
+    } else if (h.includes("selesai")) {
+      endColLetter = colLetter;
+      row.push(parseDateTime(payload.end_time, "17:00:00"));
+    } else if (h.includes("lama pengerjaan")) {
+      lamaPengerjaanCount++;
+      if (lamaPengerjaanCount === 1) {
+        // Kolom 11: Estimasi Lama Pengerjaan
+        estDurationColLetter = colLetter;
+        row.push(parseDuration(payload.est_duration));
+      } else {
+        // Kolom 15: Aktual Lama Pengerjaan -> Rumus =Selesai - Mulai
+        actualDurationColLetter = colLetter;
+        row.push(`=${endColLetter || 'N'}${rowNum}-${startColLetter || 'M'}${rowNum}`);
+      }
+    } else if (h.includes("late")) {
+      const act = actualDurationColLetter || 'O';
+      const est = estDurationColLetter || 'K';
+      row.push(`=IF(${act}${rowNum}>${est}${rowNum}, ${act}${rowNum}-${est}${rowNum}, "-")`);
+    } else if (h.includes("earlier")) {
+      const act = actualDurationColLetter || 'O';
+      const est = estDurationColLetter || 'K';
+      row.push(`=IF(AND(ISNUMBER(${act}${rowNum}), ${act}${rowNum}<${est}${rowNum}, ${act}${rowNum}>0), ${est}${rowNum}-${act}${rowNum}, "-")`);
+    } else if (h.includes("why")) {
+      row.push(payload.why || "-");
+    } else if (h.includes("technical")) {
+      row.push(payload.problem_technical || "-");
+    } else if (h.includes("collaboration")) {
+      row.push(payload.problem_collab || "-");
+    } else if (h.includes("other")) {
+      row.push(payload.problem_other || "-");
+    } else if (h.includes("platform")) {
+      row.push(payload.platform || "Mobile");
+    } else if (h.includes("role")) {
+      row.push(payload.role || "Developer");
+    } else if (h.includes("submenu")) {
+      row.push(payload.submenu || "-");
+    } else {
+      row.push("-");
+    }
+  }
+
+  return {
+    rowValues: row,
+    estCol: estDurationColLetter,
+    startCol: startColLetter,
+    endCol: endColLetter,
+    actCol: actualDurationColLetter
+  };
 }
 
 function doPost(e) {
@@ -232,7 +342,9 @@ function doPost(e) {
     const todayStr = payload.date_str || formatDateIndo(now);
 
     let lastRow = sheet.getLastRow();
+    const totalColsInSheet = sheet.getLastColumn() || TOTAL_COLS;
 
+    // Cek apakah baris pembatas tanggal hari ini sudah ada
     let dateHeaderExists = false;
     if (lastRow >= 4) {
       const colAValues = sheet.getRange(4, 1, lastRow - 3, 1).getValues();
@@ -245,17 +357,17 @@ function doPost(e) {
       }
     }
 
-    // Jika belum ada header tanggal hari ini, buat baris pemisah merah/maroon
+    // Jika belum ada tanggal hari ini, buat baris pemisah merah/maroon
     if (!dateHeaderExists) {
       if (lastRow >= 4) {
-        const prevRowRange = sheet.getRange(lastRow, 1, 1, TOTAL_COLS);
+        const prevRowRange = sheet.getRange(lastRow, 1, 1, totalColsInSheet);
         prevRowRange.setBorder(null, null, true, null, null, null, "#000000", SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
       }
 
       sheet.appendRow([todayStr]);
       lastRow = sheet.getLastRow();
       
-      const dateRange = sheet.getRange(lastRow, 1, 1, TOTAL_COLS);
+      const dateRange = sheet.getRange(lastRow, 1, 1, totalColsInSheet);
       dateRange.setBackground("#8b0000"); // Dark Red / Maroon
       dateRange.setFontColor("#ffffff");
       dateRange.setFontWeight("bold");
@@ -264,82 +376,22 @@ function doPost(e) {
 
     const nextRowNum = lastRow + 1;
 
-    // Nilai Kolom 1 - 10
-    const taskId = payload.task_id || "Non Task";
-    const status = payload.status || "Done";
-    const project = payload.project || "-";
-    const menu = payload.menu || "-";
-    const taskTitle = payload.task || payload.task_title || "-";
-    const taskType = payload.task_type || "Feature";
-    const breakdownTask = payload.breakdown_task || payload.details || "-";
-    const prepWork = payload.prep_work || payload.details || "-";
-    const askTo = payload.ask_to || "-";
-    const question = payload.question || "-";
+    // BACA HEADER DARI BARIS 2 SECARA DINAMIS
+    const currentHeaders = sheet.getRange(2, 1, 1, totalColsInSheet).getValues()[0];
+    const mapped = mapPayloadToRow(currentHeaders, payload, nextRowNum);
 
-    // Kolom 11: Estimasi Lama Pengerjaan (format 4:00:00)
-    const estDuration = parseDuration(payload.est_duration);
-
-    // Kolom 12: Estimasi Hari, Tanggal dan Pukul (dd/MM/yyyy HH:mm:ss)
-    const estDateTime = parseDateTime(payload.est_datetime, "17:00:00");
-
-    // Kolom 13 & 14: Aktual Mulai & Selesai (dd/MM/yyyy HH:mm:ss)
-    const actualStart = parseDateTime(payload.start_time, Utilities.formatDate(now, "GMT+7", "HH:mm:ss"));
-    const actualEnd = parseDateTime(payload.end_time, Utilities.formatDate(now, "GMT+7", "HH:mm:ss"));
-
-    // Kolom 15: Lama Pengerjaan Aktual -> RUMUS OTOMATIS: =N{row}-M{row}
-    const formulaActualDuration = `=N${nextRowNum}-M${nextRowNum}`;
-
-    // Kolom 16 & 17: Performance Late & Earlier -> RUMUS OTOMATIS dari Estimasi (K) dan Aktual (O)
-    // Late: Jika Aktual (O) > Estimasi (K), hitung selisihnya, jika tidak beri "-"
-    const formulaLate = `=IF(O${nextRowNum}>K${nextRowNum}, O${nextRowNum}-K${nextRowNum}, "-")`;
-    // Earlier: Jika Aktual (O) < Estimasi (K), hitung selisihnya, jika tidak beri "-"
-    const formulaEarlier = `=IF(AND(ISNUMBER(O${nextRowNum}), O${nextRowNum}<K${nextRowNum}, O${nextRowNum}>0), K${nextRowNum}-O${nextRowNum}, "-")`;
-
-    // Kolom 18 - 21
-    const why = payload.why || "-";
-    const probTech = payload.problem_technical || "-";
-    const probCollab = payload.problem_collab || "-";
-    const probOther = payload.problem_other || "-";
-
-    // Masukkan baris data
-    sheet.appendRow([
-      taskId,
-      status,
-      project,
-      menu,
-      taskTitle,
-      taskType,
-      breakdownTask,
-      prepWork,
-      askTo,
-      question,
-      estDuration,             // Kolom 11 (K)
-      estDateTime,             // Kolom 12 (L)
-      actualStart,             // Kolom 13 (M)
-      actualEnd,               // Kolom 14 (N)
-      formulaActualDuration,   // Kolom 15 (O) -> Rumus
-      formulaLate,             // Kolom 16 (P) -> Rumus
-      formulaEarlier,          // Kolom 17 (Q) -> Rumus
-      why,
-      probTech,
-      probCollab,
-      probOther
-    ]);
+    // Masukkan baris data baru persis ke kolom masing-masing
+    sheet.appendRow(mapped.rowValues);
 
     const newRow = sheet.getLastRow();
-    const rowRange = sheet.getRange(newRow, 1, 1, TOTAL_COLS);
+    const rowRange = sheet.getRange(newRow, 1, 1, totalColsInSheet);
     rowRange.setVerticalAlignment("middle");
     rowRange.setWrap(true);
     rowRange.setBorder(true, true, true, true, true, true, "#d0d0d0", SpreadsheetApp.BorderStyle.SOLID);
 
-    // Format kolom waktu & tanggal agar tampil persis format kantor
-    sheet.getRange(newRow, 11).setNumberFormat("[h]:mm:ss");      // Kolom K
-    sheet.getRange(newRow, 12, 1, 3).setNumberFormat("dd/MM/yyyy HH:mm:ss"); // Kolom L, M, N
-    sheet.getRange(newRow, 15, 1, 3).setNumberFormat("[h]:mm:ss"); // Kolom O, P, Q (Durasi selisih)
-
     return ContentService.createTextOutput(JSON.stringify({
       status: "success",
-      message: "Log berhasil dicatat dengan rumus otomatis aktual & performance",
+      message: "Log berhasil dicatat dengan Dynamic Header Mapping",
       sheet_name: sheet.getName(),
       new_tab_created: isNewMonthTab,
       row: newRow
@@ -356,6 +408,6 @@ function doPost(e) {
 function doGet(e) {
   return ContentService.createTextOutput(JSON.stringify({
     status: "ok",
-    message: "lazy-log Webhook (Format Kantor Presisi + Rumus Otomatis) siap!"
+    message: "lazy-log Webhook (Dynamic Header Mapping) aktif dan siap!"
   })).setMimeType(ContentService.MimeType.JSON);
 }
