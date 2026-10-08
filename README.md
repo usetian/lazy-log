@@ -78,18 +78,35 @@ Setelah kode `Code.gs` ditempel dan disimpan:
 
 ---
 
-## 💻 Instalasi di Laptop Anda (Hanya 1 Menit)
+## 💻 Pilihan Instalasi: Global vs Per-Project
 
-### 1. Pasang Skill Secara Global di Antigravity
-Di terminal laptop Anda, masuk ke folder repositori `lazy-log` dan jalankan script installer:
+Antigravity mendukung 2 cara pemasangan skill sesuai kebutuhan Anda:
+
+### 🌍 Opsi 1: Pasang Secara Global (Untuk Laptop Anda Pribadi)
+Gunakan opsi ini jika Anda ingin skill `lazy-log` otomatis aktif di **semua proyek** yang Anda buka di komputer ini:
 
 ```bash
 cd lazy-log
-chmod +x install.sh
-./install.sh
+./install.sh --global
+```
+*Installer ini membuat symlink ke `~/.gemini/config/skills/lazy-log`.*
+
+---
+
+### 📦 Opsi 2: Pasang Per-Project (Sangat Direkomendasikan untuk Tim!)
+Gunakan opsi ini jika Anda ingin memasang skill ini **khusus di dalam satu repositori proyek kantor** (misalnya di `javamas-mobile`):
+
+```bash
+cd lazy-log
+./install.sh --project /path/to/project-kantor
+# Contoh untuk javamas-mobile:
+./install.sh --project /Users/redantcolony/Workspace/javamas-mobile
 ```
 
-*Installer ini otomatis membuat symlink ke `~/.gemini/config/skills/lazy-log` sehingga skill langsung aktif di seluruh project yang Anda buka di Antigravity.*
+**🔥 Mengapa Opsi Per-Project Sangat Bagus untuk Tim?**
+1. **Zero Setup untuk Teman Tim:** Folder skill akan berada di `.agents/skills/lazy-log` di dalam repo tersebut. Ketika folder ini di-commit ke Git kantor, **siapa pun rekan tim Anda yang nge-clone repo tersebut langsung otomatis memiliki skill lazy-log** tanpa perlu install apa pun lagi!
+2. **Konfigurasi Mandiri:** Proyek tersebut memiliki pengaturan spreadsheet dan nama modulnya sendiri tanpa mengganggu proyek lain.
+3. **Privasi Alami:** Skill ini hanya akan aktif saat sedang membuka proyek tersebut.
 
 ---
 

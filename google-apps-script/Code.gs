@@ -1,6 +1,6 @@
 /**
  * Google Apps Script for lazy-log (Dynamic Header Mapping, 21 Kolom, & Fitur OVERWRITE)
- * 
+ *
  * Fitur:
  * 1. DYNAMIC HEADER MAPPING: Membaca nama kolom di Baris 2 agar tidak pernah salah kolom.
  * 2. FITUR OVERWRITE / UPDATE: Jika dipanggil dengan mode overwrite, script akan mencari
@@ -12,43 +12,64 @@
  */
 
 const MONTH_NAMES_ID = [
-  "Januari", "Februari", "Maret", "April", "Mei", "Juni",
-  "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+  "Januari",
+  "Februari",
+  "Maret",
+  "April",
+  "Mei",
+  "Juni",
+  "Juli",
+  "Agustus",
+  "September",
+  "Oktober",
+  "November",
+  "Desember",
 ];
 const MONTH_NAMES_EN = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December"
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
 ];
 
 // 21 Kolom Standar Kantor Presisi
 const EXACT_OFFICE_HEADERS = [
-  "Task ID", 
-  "Status", 
-  "Project", 
-  "Menu", 
-  "Task Title", 
-  "Task Type", 
-  "Breakdown Task", 
-  "Yang akan Dilakukan dan Perlu Dilakukan", 
-  "Ask to", 
-  "Question", 
-  "Lama Pengerjaan", 
-  "Hari, Tanggal dan Pukul", 
-  "Mulai", 
-  "Selesai", 
-  "Lama Pengerjaan", 
-  "Late", 
-  "Earlier", 
-  "Why", 
-  "Technical", 
-  "Collaboration", 
-  "Other"
+  "Task ID",
+  "Status",
+  "Project",
+  "Menu",
+  "Task Title",
+  "Task Type",
+  "Breakdown Task",
+  "Yang akan Dilakukan dan Perlu Dilakukan",
+  "Ask to",
+  "Question",
+  "Lama Pengerjaan",
+  "Hari, Tanggal dan Pukul",
+  "Mulai",
+  "Selesai",
+  "Lama Pengerjaan",
+  "Late",
+  "Earlier",
+  "Why",
+  "Technical",
+  "Collaboration",
+  "Other",
 ];
 
 const TOTAL_COLS = EXACT_OFFICE_HEADERS.length; // 21
 
 function columnToLetter(column) {
-  let temp, letter = '';
+  let temp,
+    letter = "";
   while (column > 0) {
     temp = (column - 1) % 26;
     letter = String.fromCharCode(temp + 65) + letter;
@@ -63,24 +84,57 @@ function setupOfficeHeader(sheet) {
   // Baris 1: Group Header (21 Kolom)
   const row1 = new Array(TOTAL_COLS).fill("");
   row1[0] = "Task detail and Action"; // Col A - F (1 - 6)
-  row1[6] = "Prep Work";             // Col G - J (7 - 10)
+  row1[6] = "Prep Work"; // Col G - J (7 - 10)
   row1[10] = "Estimasi Penyelesaian"; // Col K - L (11 - 12)
-  row1[12] = "Aktual Selesai";        // Col M - O (13 - 15)
-  row1[15] = "Performance";           // Col P - R (16 - 18)
-  row1[18] = "Problem Occur";         // Col S - U (19 - 21)
+  row1[12] = "Aktual Selesai"; // Col M - O (13 - 15)
+  row1[15] = "Performance"; // Col P - R (16 - 18)
+  row1[18] = "Problem Occur"; // Col S - U (19 - 21)
   sheet.appendRow(row1);
 
-  sheet.getRange(1, 1, 1, 6).merge().setBackground("#d9e1f2").setFontWeight("bold").setHorizontalAlignment("center");
-  sheet.getRange(1, 7, 1, 4).merge().setBackground("#b4c6e7").setFontWeight("bold").setHorizontalAlignment("center");
-  sheet.getRange(1, 11, 1, 2).merge().setBackground("#8ea9db").setFontWeight("bold").setHorizontalAlignment("center");
-  sheet.getRange(1, 13, 1, 3).merge().setBackground("#fce4d6").setFontWeight("bold").setHorizontalAlignment("center");
-  sheet.getRange(1, 16, 1, 3).merge().setBackground("#f8cbad").setFontWeight("bold").setHorizontalAlignment("center");
-  sheet.getRange(1, 19, 1, 3).merge().setBackground("#f4b084").setFontWeight("bold").setHorizontalAlignment("center");
+  sheet
+    .getRange(1, 1, 1, 6)
+    .merge()
+    .setBackground("#d9e1f2")
+    .setFontWeight("bold")
+    .setHorizontalAlignment("center");
+  sheet
+    .getRange(1, 7, 1, 4)
+    .merge()
+    .setBackground("#b4c6e7")
+    .setFontWeight("bold")
+    .setHorizontalAlignment("center");
+  sheet
+    .getRange(1, 11, 1, 2)
+    .merge()
+    .setBackground("#8ea9db")
+    .setFontWeight("bold")
+    .setHorizontalAlignment("center");
+  sheet
+    .getRange(1, 13, 1, 3)
+    .merge()
+    .setBackground("#fce4d6")
+    .setFontWeight("bold")
+    .setHorizontalAlignment("center");
+  sheet
+    .getRange(1, 16, 1, 3)
+    .merge()
+    .setBackground("#f8cbad")
+    .setFontWeight("bold")
+    .setHorizontalAlignment("center");
+  sheet
+    .getRange(1, 19, 1, 3)
+    .merge()
+    .setBackground("#f4b084")
+    .setFontWeight("bold")
+    .setHorizontalAlignment("center");
 
   // Baris 2: Column Titles
   sheet.appendRow(EXACT_OFFICE_HEADERS);
   const row2Range = sheet.getRange(2, 1, 1, TOTAL_COLS);
-  row2Range.setFontWeight("bold").setHorizontalAlignment("center").setVerticalAlignment("middle");
+  row2Range
+    .setFontWeight("bold")
+    .setHorizontalAlignment("center")
+    .setVerticalAlignment("middle");
   sheet.getRange(2, 1, 1, 6).setBackground("#d9e1f2");
   sheet.getRange(2, 7, 1, 4).setBackground("#b4c6e7");
   sheet.getRange(2, 11, 1, 2).setBackground("#8ea9db");
@@ -90,24 +144,42 @@ function setupOfficeHeader(sheet) {
 
   // Baris 3: Catatan Panduan Hijau
   const row3 = new Array(TOTAL_COLS).fill("");
-  row3[0] = "* Apabila tidak memiliki Task ID, Task ID nya di isi \"Non Task\"";
+  row3[0] = '* Apabila tidak memiliki Task ID, Task ID nya di isi "Non Task"';
   row3[6] = "* Diisikan ketika prepared task / breakdown task";
-  row3[7] = "* Diisikan ketika prepared task / breakdown task , dapat disesuaikan ketika brief pagi";
+  row3[7] =
+    "* Diisikan ketika prepared task / breakdown task , dapat disesuaikan ketika brief pagi";
   row3[10] = "Format 4:00:00";
-  row3[11] = "* Diisikan ketika prepared task / breakdown task. Format penulisan date-time ikuti yang sudah ada biar seragam dan gampang hitungnya";
+  row3[11] =
+    "* Diisikan ketika prepared task / breakdown task. Format penulisan date-time ikuti yang sudah ada biar seragam dan gampang hitungnya";
   row3[12] = "* diisi ketika mulai task";
   row3[13] = "* diisi ketika selesai task";
   row3[14] = "--- Automatic ---";
   row3[15] = "--- Automatic ---";
   row3[16] = "--- Automatic ---";
   row3[17] = "* Penjelasan kenapa molor atau lebih cepat";
-  row3[18] = "* Tuliskan masalah - masalah yang timbul ketika melaksanakan task";
+  row3[18] =
+    "* Tuliskan masalah - masalah yang timbul ketika melaksanakan task";
   sheet.appendRow(row3);
 
   const row3Range = sheet.getRange(3, 1, 1, TOTAL_COLS);
-  row3Range.setBackground("#c6efce").setFontColor("#006100").setFontSize(9).setVerticalAlignment("middle");
+  row3Range
+    .setBackground("#c6efce")
+    .setFontColor("#006100")
+    .setFontSize(9)
+    .setVerticalAlignment("middle");
 
-  sheet.getRange(1, 1, 3, TOTAL_COLS).setBorder(true, true, true, true, true, true, "#808080", SpreadsheetApp.BorderStyle.SOLID);
+  sheet
+    .getRange(1, 1, 3, TOTAL_COLS)
+    .setBorder(
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      "#808080",
+      SpreadsheetApp.BorderStyle.SOLID,
+    );
   sheet.setFrozenRows(3);
 }
 
@@ -125,14 +197,20 @@ function getTargetSheet(ss) {
 
   const sheets = ss.getSheets();
   const patterns = [
-    new RegExp(`^${MONTH_NAMES_ID[monthIdx]}\\s*${year}$`, 'i'),
-    new RegExp(`^${MONTH_NAMES_EN[monthIdx]}\\s*${year}$`, 'i'),
-    new RegExp(`^${MONTH_NAMES_ID[monthIdx].substring(0, 3)}\\w*\\s*['"]?${String(year).slice(-2)}$`, 'i'),
-    new RegExp(`^${MONTH_NAMES_EN[monthIdx].substring(0, 3)}\\w*\\s*['"]?${String(year).slice(-2)}$`, 'i'),
-    new RegExp(`^${String(monthIdx + 1).padStart(2, '0')}[-_/]${year}$`, 'i'),
-    new RegExp(`^${year}[-_/]${String(monthIdx + 1).padStart(2, '0')}$`, 'i'),
-    new RegExp(`^${MONTH_NAMES_ID[monthIdx]}$`, 'i'),
-    new RegExp(`^${MONTH_NAMES_EN[monthIdx]}$`, 'i')
+    new RegExp(`^${MONTH_NAMES_ID[monthIdx]}\\s*${year}$`, "i"),
+    new RegExp(`^${MONTH_NAMES_EN[monthIdx]}\\s*${year}$`, "i"),
+    new RegExp(
+      `^${MONTH_NAMES_ID[monthIdx].substring(0, 3)}\\w*\\s*['"]?${String(year).slice(-2)}$`,
+      "i",
+    ),
+    new RegExp(
+      `^${MONTH_NAMES_EN[monthIdx].substring(0, 3)}\\w*\\s*['"]?${String(year).slice(-2)}$`,
+      "i",
+    ),
+    new RegExp(`^${String(monthIdx + 1).padStart(2, "0")}[-_/]${year}$`, "i"),
+    new RegExp(`^${year}[-_/]${String(monthIdx + 1).padStart(2, "0")}$`, "i"),
+    new RegExp(`^${MONTH_NAMES_ID[monthIdx]}$`, "i"),
+    new RegExp(`^${MONTH_NAMES_EN[monthIdx]}$`, "i"),
   ];
 
   for (const sheet of sheets) {
@@ -177,7 +255,10 @@ function getTargetSheet(ss) {
   }
 
   let targetSheet = sheets[0];
-  if (targetSheet.getName().toLowerCase().startsWith("sheet1") || targetSheet.getName().toLowerCase().startsWith("halaman1")) {
+  if (
+    targetSheet.getName().toLowerCase().startsWith("sheet1") ||
+    targetSheet.getName().toLowerCase().startsWith("halaman1")
+  ) {
     targetSheet.setName(standardName);
   } else {
     targetSheet = ss.insertSheet(standardName);
@@ -187,8 +268,8 @@ function getTargetSheet(ss) {
 }
 
 function formatDateIndo(date) {
-  const d = String(date.getDate()).padStart(2, '0');
-  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, "0");
+  const m = String(date.getMonth() + 1).padStart(2, "0");
   const y = date.getFullYear();
   return `${d}/${m}/${y}`;
 }
@@ -207,7 +288,7 @@ function parseDuration(val) {
     const hours = parseFloat(match[1]);
     const h = Math.floor(hours);
     const m = Math.round((hours - h) * 60);
-    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`;
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:00`;
   }
   return val;
 }
@@ -237,7 +318,10 @@ function mapPayloadToRow(headers, payload, rowNum) {
 
   for (let i = 0; i < headers.length; i++) {
     const colLetter = columnToLetter(i + 1);
-    const h = String(headers[i] || "").trim().toLowerCase().replace(/\r?\n|\r/g, " ");
+    const h = String(headers[i] || "")
+      .trim()
+      .toLowerCase()
+      .replace(/\r?\n|\r/g, " ");
 
     if (h.includes("task id")) {
       row.push(payload.task_id || "Non Task");
@@ -274,16 +358,22 @@ function mapPayloadToRow(headers, payload, rowNum) {
         row.push(parseDuration(payload.est_duration));
       } else {
         actualDurationColLetter = colLetter;
-        row.push(`=${endColLetter || 'N'}${rowNum}-${startColLetter || 'M'}${rowNum}`);
+        row.push(
+          `=${endColLetter || "N"}${rowNum}-${startColLetter || "M"}${rowNum}`,
+        );
       }
     } else if (h.includes("late")) {
-      const act = actualDurationColLetter || 'O';
-      const est = estDurationColLetter || 'K';
-      row.push(`=IF(AND(${act}${rowNum}>${est}${rowNum};${act}${rowNum}>0);${act}${rowNum}-${est}${rowNum};"")`);
+      const act = actualDurationColLetter || "O";
+      const est = estDurationColLetter || "K";
+      row.push(
+        `=IF(AND(${act}${rowNum}>${est}${rowNum};${act}${rowNum}>0);${act}${rowNum}-${est}${rowNum};"")`,
+      );
     } else if (h.includes("earlier")) {
-      const act = actualDurationColLetter || 'O';
-      const est = estDurationColLetter || 'K';
-      row.push(`=IF(AND(${est}${rowNum}>${act}${rowNum};${act}${rowNum}>0);${est}${rowNum}-${act}${rowNum};"")`);
+      const act = actualDurationColLetter || "O";
+      const est = estDurationColLetter || "K";
+      row.push(
+        `=IF(AND(${est}${rowNum}>${act}${rowNum};${act}${rowNum}>0);${est}${rowNum}-${act}${rowNum};"")`,
+      );
     } else if (h.includes("why")) {
       row.push(payload.why || "-");
     } else if (h.includes("technical")) {
@@ -308,7 +398,7 @@ function mapPayloadToRow(headers, payload, rowNum) {
     estCol: estDurationColLetter,
     startCol: startColLetter,
     endCol: endColLetter,
-    actCol: actualDurationColLetter
+    actCol: actualDurationColLetter,
   };
 }
 
@@ -331,9 +421,12 @@ function doPost(e) {
 
     let lastRow = sheet.getLastRow();
     const totalColsInSheet = sheet.getLastColumn() || TOTAL_COLS;
-    const currentHeaders = sheet.getRange(2, 1, 1, totalColsInSheet).getValues()[0];
+    const currentHeaders = sheet
+      .getRange(2, 1, 1, totalColsInSheet)
+      .getValues()[0];
 
-    const isOverwrite = (payload.overwrite === true || payload.overwrite === "true");
+    const isOverwrite =
+      payload.overwrite === true || payload.overwrite === "true";
 
     // 1. Cari baris tanggal pembatas (Merah/Maroon) menggunakan getDisplayValues & getValues
     let dateHeaderRow = null;
@@ -358,8 +451,12 @@ function doPost(e) {
     if (isOverwrite && dateHeaderRow !== null) {
       let nextDateRow = lastRow + 1;
       if (lastRow > dateHeaderRow) {
-        const colAAllRaw = sheet.getRange(dateHeaderRow + 1, 1, lastRow - dateHeaderRow, 1).getValues();
-        const colAAllDisp = sheet.getRange(dateHeaderRow + 1, 1, lastRow - dateHeaderRow, 1).getDisplayValues();
+        const colAAllRaw = sheet
+          .getRange(dateHeaderRow + 1, 1, lastRow - dateHeaderRow, 1)
+          .getValues();
+        const colAAllDisp = sheet
+          .getRange(dateHeaderRow + 1, 1, lastRow - dateHeaderRow, 1)
+          .getDisplayValues();
         for (let i = 0; i < colAAllRaw.length; i++) {
           const raw = colAAllRaw[i][0];
           const disp = String(colAAllDisp[i][0] || "").trim();
@@ -378,25 +475,41 @@ function doPost(e) {
       let targetRowToUpdate = null;
 
       if (taskRowsCount > 0) {
-        const taskData = sheet.getRange(dateHeaderRow + 1, 1, taskRowsCount, totalColsInSheet).getDisplayValues();
+        const taskData = sheet
+          .getRange(dateHeaderRow + 1, 1, taskRowsCount, totalColsInSheet)
+          .getDisplayValues();
         const reqTaskId = (payload.task_id || "").trim();
-        const reqTaskTitle = (payload.task || payload.task_title || "").trim().toLowerCase();
+        const reqTaskTitle = (payload.task || payload.task_title || "")
+          .trim()
+          .toLowerCase();
 
         let matchedIdx = -1;
         for (let r = 0; r < taskData.length; r++) {
           const rowTaskId = String(taskData[r][0] || "").trim();
           let rowTitle = "";
           for (let c = 0; c < currentHeaders.length; c++) {
-            if (String(currentHeaders[c]).toLowerCase().includes("task title")) {
-              rowTitle = String(taskData[r][c] || "").trim().toLowerCase();
+            if (
+              String(currentHeaders[c]).toLowerCase().includes("task title")
+            ) {
+              rowTitle = String(taskData[r][c] || "")
+                .trim()
+                .toLowerCase();
               break;
             }
           }
 
-          if (reqTaskId !== "Non Task" && reqTaskId !== "" && rowTaskId === reqTaskId) {
+          if (
+            reqTaskId !== "Non Task" &&
+            reqTaskId !== "" &&
+            rowTaskId === reqTaskId
+          ) {
             matchedIdx = r;
             break;
-          } else if (reqTaskTitle && rowTitle && (rowTitle.includes(reqTaskTitle) || reqTaskTitle.includes(rowTitle))) {
+          } else if (
+            reqTaskTitle &&
+            rowTitle &&
+            (rowTitle.includes(reqTaskTitle) || reqTaskTitle.includes(rowTitle))
+          ) {
             matchedIdx = r;
             break;
           }
@@ -414,20 +527,36 @@ function doPost(e) {
 
       // Jika baris target ditemukan, TIMPA DATA (OVERWRITE IN-PLACE)
       if (targetRowToUpdate !== null) {
-        const mapped = mapPayloadToRow(currentHeaders, payload, targetRowToUpdate);
-        sheet.getRange(targetRowToUpdate, 1, 1, mapped.rowValues.length).setValues([mapped.rowValues]);
+        const mapped = mapPayloadToRow(
+          currentHeaders,
+          payload,
+          targetRowToUpdate,
+        );
+        sheet
+          .getRange(targetRowToUpdate, 1, 1, mapped.rowValues.length)
+          .setValues([mapped.rowValues]);
 
         sheet.getRange(targetRowToUpdate, 11).setNumberFormat("[h]:mm:ss");
-        sheet.getRange(targetRowToUpdate, 12, 1, 3).setNumberFormat("dd/MM/yyyy HH:mm:ss");
-        sheet.getRange(targetRowToUpdate, 15, 1, 3).setNumberFormat("[h]:mm:ss");
+        sheet
+          .getRange(targetRowToUpdate, 12, 1, 3)
+          .setNumberFormat("dd/MM/yyyy HH:mm:ss");
+        sheet
+          .getRange(targetRowToUpdate, 15, 1, 3)
+          .setNumberFormat("[h]:mm:ss");
 
-        return ContentService.createTextOutput(JSON.stringify({
-          status: "success",
-          action: "overwritten",
-          message: "Data log pada tanggal " + todayStr + " berhasil diperbarui (di-timpa) pada baris " + targetRowToUpdate,
-          sheet_name: sheet.getName(),
-          row: targetRowToUpdate
-        })).setMimeType(ContentService.MimeType.JSON);
+        return ContentService.createTextOutput(
+          JSON.stringify({
+            status: "success",
+            action: "overwritten",
+            message:
+              "Data log pada tanggal " +
+              todayStr +
+              " berhasil diperbarui (di-timpa) pada baris " +
+              targetRowToUpdate,
+            sheet_name: sheet.getName(),
+            row: targetRowToUpdate,
+          }),
+        ).setMimeType(ContentService.MimeType.JSON);
       }
     }
 
@@ -435,12 +564,21 @@ function doPost(e) {
     if (dateHeaderRow === null) {
       if (lastRow >= 4) {
         const prevRowRange = sheet.getRange(lastRow, 1, 1, totalColsInSheet);
-        prevRowRange.setBorder(null, null, true, null, null, null, "#000000", SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
+        prevRowRange.setBorder(
+          null,
+          null,
+          true,
+          null,
+          null,
+          null,
+          "#000000",
+          SpreadsheetApp.BorderStyle.SOLID_MEDIUM,
+        );
       }
 
       sheet.appendRow([todayStr]);
       lastRow = sheet.getLastRow();
-      
+
       const dateRange = sheet.getRange(lastRow, 1, 1, totalColsInSheet);
       dateRange.setBackground("#8b0000"); // Dark Red / Maroon
       dateRange.setFontColor("#ffffff");
@@ -456,32 +594,46 @@ function doPost(e) {
     const rowRange = sheet.getRange(newRow, 1, 1, totalColsInSheet);
     rowRange.setVerticalAlignment("middle");
     rowRange.setWrap(true);
-    rowRange.setBorder(true, true, true, true, true, true, "#d0d0d0", SpreadsheetApp.BorderStyle.SOLID);
+    rowRange.setBorder(
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      "#d0d0d0",
+      SpreadsheetApp.BorderStyle.SOLID,
+    );
 
     sheet.getRange(newRow, 11).setNumberFormat("[h]:mm:ss");
     sheet.getRange(newRow, 12, 1, 3).setNumberFormat("dd/MM/yyyy HH:mm:ss");
     sheet.getRange(newRow, 15, 1, 3).setNumberFormat("[h]:mm:ss");
 
-    return ContentService.createTextOutput(JSON.stringify({
-      status: "success",
-      action: "appended",
-      message: "Log berhasil dicatat ke spreadsheet",
-      sheet_name: sheet.getName(),
-      new_tab_created: isNewMonthTab,
-      row: newRow
-    })).setMimeType(ContentService.MimeType.JSON);
-
+    return ContentService.createTextOutput(
+      JSON.stringify({
+        status: "success",
+        action: "appended",
+        message: "Log berhasil dicatat ke spreadsheet",
+        sheet_name: sheet.getName(),
+        new_tab_created: isNewMonthTab,
+        row: newRow,
+      }),
+    ).setMimeType(ContentService.MimeType.JSON);
   } catch (err) {
-    return ContentService.createTextOutput(JSON.stringify({
-      status: "error",
-      message: err.toString()
-    })).setMimeType(ContentService.MimeType.JSON);
+    return ContentService.createTextOutput(
+      JSON.stringify({
+        status: "error",
+        message: err.toString(),
+      }),
+    ).setMimeType(ContentService.MimeType.JSON);
   }
 }
 
 function doGet(e) {
-  return ContentService.createTextOutput(JSON.stringify({
-    status: "ok",
-    message: "lazy-log Webhook (Dynamic Header + Overwrite Support) siap!"
-  })).setMimeType(ContentService.MimeType.JSON);
+  return ContentService.createTextOutput(
+    JSON.stringify({
+      status: "ok",
+      message: "lazy-log Webhook (Dynamic Header + Overwrite Support) siap!",
+    }),
+  ).setMimeType(ContentService.MimeType.JSON);
 }
