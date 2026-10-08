@@ -1,12 +1,14 @@
 /**
- * Google Apps Script for lazy-log (Dynamic Header Mapping & 21 Kolom Kantor)
+ * Google Apps Script for lazy-log (Dynamic Header Mapping, 21 Kolom, & Fitur OVERWRITE)
  * 
- * Keunggulan Versi Ini:
- * 1. DYNAMIC HEADER MAPPING: Script membaca nama header di Baris 2 secara langsung!
- *    Tidak akan pernah salah kolom lagi meskipun susunan kolom diubah-ubah.
- * 2. Menggunakan 21 Kolom Presisi Dokumen Kantor.
- * 3. Rumus otomatis dinamis (Selesai - Mulai) & Performance (Late / Earlier).
- * 4. Fungsi 'resetSheetHeaders()' untuk mereset tampilan sheet ke format 21 kolom rapi dengan 1 klik.
+ * Fitur:
+ * 1. DYNAMIC HEADER MAPPING: Membaca nama kolom di Baris 2 agar tidak pernah salah kolom.
+ * 2. FITUR OVERWRITE / UPDATE: Jika dipanggil dengan mode overwrite, script akan mencari
+ *    data pada tanggal/task tersebut dan menimpanya (update in-place) tanpa membuat baris baru.
+ * 3. RUMUS PRESISI KANTOR:
+ *    - Aktual: =N{row}-M{row}
+ *    - Late:    =IF(AND(O{row}>K{row};O{row}>0);O{row}-K{row};"")
+ *    - Earlier: =IF(AND(K{row}>O{row};O{row}>0);K{row}-O{row};"")
  */
 
 const MONTH_NAMES_ID = [
@@ -55,11 +57,7 @@ function columnToLetter(column) {
   return letter;
 }
 
-/**
- * Fungsi untuk membangun / mereset 3 baris header kantor ke 21 kolom presisi
- */
 function setupOfficeHeader(sheet) {
-  // Hapus semua baris lama agar bersih
   sheet.clear();
 
   // Baris 1: Group Header (21 Kolom)
@@ -113,9 +111,6 @@ function setupOfficeHeader(sheet) {
   sheet.setFrozenRows(3);
 }
 
-/**
- * Jalankan fungsi ini langsung dari editor Apps Script jika ingin mereset sheet aktif ke 21 kolom rapi!
- */
 function resetSheetHeaders() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getActiveSheet();
@@ -231,11 +226,6 @@ function parseDateTime(val, defaultTime) {
   return val;
 }
 
-/**
- * DYNAMIC HEADER MAPPER:
- * Membaca nama kolom dari Baris 2 sheet secara dinamis.
- * Menjamin nilai masuk ke kolom yang BENAR 100% tanpa bergantung pada posisi indeks!
- */
 function mapPayloadToRow(headers, payload, rowNum) {
   let estDurationColLetter = null;
   let actualDurationColLetter = null;
@@ -280,11 +270,9 @@ function mapPayloadToRow(headers, payload, rowNum) {
     } else if (h.includes("lama pengerjaan")) {
       lamaPengerjaanCount++;
       if (lamaPengerjaanCount === 1) {
-        // Kolom 11: Estimasi Lama Pengerjaan
         estDurationColLetter = colLetter;
         row.push(parseDuration(payload.est_duration));
       } else {
-        // Kolom 15: Aktual Lama Pengerjaan -> Rumus =Selesai - Mulai
         actualDurationColLetter = colLetter;
         row.push(`=${endColLetter || 'N'}${rowNum}-${startColLetter || 'M'}${rowNum}`);
       }
@@ -343,22 +331,96 @@ function doPost(e) {
 
     let lastRow = sheet.getLastRow();
     const totalColsInSheet = sheet.getLastColumn() || TOTAL_COLS;
+    const currentHeaders = sheet.getRange(2, 1, 1, totalColsInSheet).getValues()[0];
 
-    // Cek apakah baris pembatas tanggal hari ini sudah ada
-    let dateHeaderExists = false;
+    const isOverwrite = (payload.overwrite === true || payload.overwrite === "true");
+
+    // 1. Cari baris tanggal pembatas (Merah/Maroon)
+    let dateHeaderRow = null;
     if (lastRow >= 4) {
       const colAValues = sheet.getRange(4, 1, lastRow - 3, 1).getValues();
-      for (let i = colAValues.length - 1; i >= 0; i--) {
+      for (let i = 0; i < colAValues.length; i++) {
         const val = colAValues[i][0];
         if (val && String(val).trim() === todayStr) {
-          dateHeaderExists = true;
+          dateHeaderRow = 4 + i;
           break;
         }
       }
     }
 
-    // Jika belum ada tanggal hari ini, buat baris pemisah merah/maroon
-    if (!dateHeaderExists) {
+    // 2. JIKA MODE OVERWRITE: Cari dan timpa task yang ada pada tanggal tersebut
+    if (isOverwrite && dateHeaderRow !== null) {
+      let nextDateRow = lastRow + 1;
+      if (lastRow > dateHeaderRow) {
+        const colAAll = sheet.getRange(dateHeaderRow + 1, 1, lastRow - dateHeaderRow, 1).getValues();
+        for (let i = 0; i < colAAll.length; i++) {
+          const val = String(colAAll[i][0] || "").trim();
+          if (/^\d{2}\/\d{2}\/\d{4}$/.test(val)) {
+            nextDateRow = dateHeaderRow + 1 + i;
+            break;
+          }
+        }
+      }
+
+      const taskRowsCount = nextDateRow - (dateHeaderRow + 1);
+      let targetRowToUpdate = null;
+
+      if (taskRowsCount > 0) {
+        const taskData = sheet.getRange(dateHeaderRow + 1, 1, taskRowsCount, totalColsInSheet).getValues();
+        const reqTaskId = (payload.task_id || "").trim();
+        const reqTaskTitle = (payload.task || payload.task_title || "").trim().toLowerCase();
+
+        let matchedIdx = -1;
+        for (let r = 0; r < taskData.length; r++) {
+          const rowTaskId = String(taskData[r][0] || "").trim();
+          let rowTitle = "";
+          for (let c = 0; c < currentHeaders.length; c++) {
+            if (String(currentHeaders[c]).toLowerCase().includes("task title")) {
+              rowTitle = String(taskData[r][c] || "").trim().toLowerCase();
+              break;
+            }
+          }
+
+          if (reqTaskId !== "Non Task" && reqTaskId !== "" && rowTaskId === reqTaskId) {
+            matchedIdx = r;
+            break;
+          } else if (reqTaskTitle && rowTitle && (rowTitle.includes(reqTaskTitle) || reqTaskTitle.includes(rowTitle))) {
+            matchedIdx = r;
+            break;
+          }
+        }
+
+        // Jika hanya ada 1 task di hari itu, langsung timpa baris tersebut
+        if (matchedIdx === -1 && taskData.length === 1) {
+          matchedIdx = 0;
+        }
+
+        if (matchedIdx !== -1) {
+          targetRowToUpdate = dateHeaderRow + 1 + matchedIdx;
+        }
+      }
+
+      // Jika baris target ditemukan, TIMPA DATA (OVERWRITE IN-PLACE)
+      if (targetRowToUpdate !== null) {
+        const mapped = mapPayloadToRow(currentHeaders, payload, targetRowToUpdate);
+        sheet.getRange(targetRowToUpdate, 1, 1, mapped.rowValues.length).setValues([mapped.rowValues]);
+
+        sheet.getRange(targetRowToUpdate, 11).setNumberFormat("[h]:mm:ss");
+        sheet.getRange(targetRowToUpdate, 12, 1, 3).setNumberFormat("dd/MM/yyyy HH:mm:ss");
+        sheet.getRange(targetRowToUpdate, 15, 1, 3).setNumberFormat("[h]:mm:ss");
+
+        return ContentService.createTextOutput(JSON.stringify({
+          status: "success",
+          action: "overwritten",
+          message: "Data log pada tanggal " + todayStr + " berhasil diperbarui (di-timpa) pada baris " + targetRowToUpdate,
+          sheet_name: sheet.getName(),
+          row: targetRowToUpdate
+        })).setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+
+    // 3. JIKA BUKAN OVERWRITE ATAU TANGGAL BELUM ADA: Tambahkan baris baru (APPEND)
+    if (dateHeaderRow === null) {
       if (lastRow >= 4) {
         const prevRowRange = sheet.getRange(lastRow, 1, 1, totalColsInSheet);
         prevRowRange.setBorder(null, null, true, null, null, null, "#000000", SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
@@ -375,12 +437,7 @@ function doPost(e) {
     }
 
     const nextRowNum = lastRow + 1;
-
-    // BACA HEADER DARI BARIS 2 SECARA DINAMIS
-    const currentHeaders = sheet.getRange(2, 1, 1, totalColsInSheet).getValues()[0];
     const mapped = mapPayloadToRow(currentHeaders, payload, nextRowNum);
-
-    // Masukkan baris data baru persis ke kolom masing-masing
     sheet.appendRow(mapped.rowValues);
 
     const newRow = sheet.getLastRow();
@@ -389,9 +446,14 @@ function doPost(e) {
     rowRange.setWrap(true);
     rowRange.setBorder(true, true, true, true, true, true, "#d0d0d0", SpreadsheetApp.BorderStyle.SOLID);
 
+    sheet.getRange(newRow, 11).setNumberFormat("[h]:mm:ss");
+    sheet.getRange(newRow, 12, 1, 3).setNumberFormat("dd/MM/yyyy HH:mm:ss");
+    sheet.getRange(newRow, 15, 1, 3).setNumberFormat("[h]:mm:ss");
+
     return ContentService.createTextOutput(JSON.stringify({
       status: "success",
-      message: "Log berhasil dicatat dengan Dynamic Header Mapping",
+      action: "appended",
+      message: "Log berhasil dicatat ke spreadsheet",
       sheet_name: sheet.getName(),
       new_tab_created: isNewMonthTab,
       row: newRow
@@ -408,6 +470,6 @@ function doPost(e) {
 function doGet(e) {
   return ContentService.createTextOutput(JSON.stringify({
     status: "ok",
-    message: "lazy-log Webhook (Dynamic Header Mapping) aktif dan siap!"
+    message: "lazy-log Webhook (Dynamic Header + Overwrite Support) siap!"
   })).setMimeType(ContentService.MimeType.JSON);
 }

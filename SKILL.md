@@ -43,9 +43,17 @@ python3 "<path-to-lazy-log>/scripts/log_activity.py" \
   --task "<Judul Task>" \
   --details "<Rincian apa yang dikerjakan/diubah>" \
   --task-id "PROJ-123 (atau kosongkan untuk Non Task)" \
-  --platform "Web" \
   --task-type "Feature" \
   --status "Done"
+```
+
+### Opsi Perbarui / Timpa Data (Overwrite):
+Jika user meminta "perbarui", "update", "koreksi", atau "timpa" log di tanggal tertentu, sertakan opsi `--overwrite` dan `--date`:
+```bash
+python3 "<path-to-lazy-log>/scripts/log_activity.py" \
+  --date "07/10/2026" \
+  --overwrite \
+  --task "<Judul Task>" ...
 ```
 
 ## Proteksi & Filter Project Kantor (Privasi)

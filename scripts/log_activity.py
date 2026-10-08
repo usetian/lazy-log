@@ -198,7 +198,7 @@ def send_to_google_sheets(webhook_url, payload):
     )
 
     opener = urllib.request.build_opener(SmartRedirectHandler())
-    with opener.open(req, timeout=15) as response:
+    with opener.open(req, timeout=30) as response:
         res_body = response.read().decode("utf-8")
         try:
             return json.loads(res_body)
@@ -238,6 +238,7 @@ def main():
     
     # Argumen Kontrol
     parser.add_argument("--date", default=None, help="Tanggal pengerjaan (format: DD/MM/YYYY, default: hari ini)")
+    parser.add_argument("--overwrite", action="store_true", help="Perbarui / timpa log yang sudah ada pada tanggal/task tersebut")
     parser.add_argument("--force", action="store_true", help="Paksa kirim meskipun project tidak ada di daftar allowed_projects")
     parser.add_argument("--webhook-url", default=None, help="Google Apps Script Web App URL")
     parser.add_argument("--dry-run", action="store_true", help="Cetak payload tanpa mengirim")
@@ -346,7 +347,8 @@ def main():
         "why": args.why,
         "problem_technical": args.problem_tech,
         "problem_collab": args.problem_collab,
-        "problem_other": args.problem_other
+        "problem_other": args.problem_other,
+        "overwrite": args.overwrite
     }
 
     # Simpan selalu ke backup lokal
