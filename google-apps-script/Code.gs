@@ -1,28 +1,12 @@
 /**
- * Google Apps Script for lazy-log (Format Kantor Presisi 21 Kolom)
+ * Google Apps Script for lazy-log (Format Kantor Presisi 21 Kolom & Rumus Otomatis)
  * 
- * Urutan Kolom Baris 2 (Sesuai Dokumen Kantor):
- * 1. Task ID
- * 2. Status
- * 3. Project
- * 4. Menu
- * 5. Task Title
- * 6. Task Type
- * 7. Breakdown Task
- * 8. Yang akan Dilakukan dan Perlu Dilakukan
- * 9. Ask to
- * 10. Question
- * 11. Lama Pengerjaan (Estimasi)
- * 12. Hari, Tanggal dan Pukul (Estimasi)
- * 13. Mulai (Aktual)
- * 14. Selesai (Aktual)
- * 15. Lama Pengerjaan (Aktual)
- * 16. Late
- * 17. Earlier
- * 18. Why
- * 19. Technical
- * 20. Collaboration
- * 21. Other
+ * Aturan Khusus Format Kantor:
+ * 1. Estimasi Lama Pengerjaan (Kolom K): Format durasi "04:00:00"
+ * 2. Hari, Tanggal, Pukul Estimasi (Kolom L): Format "dd/MM/yyyy HH:mm:ss"
+ * 3. Mulai Aktual (Kolom M) & Selesai Aktual (Kolom N): Format "dd/MM/yyyy HH:mm:ss"
+ * 4. Lama Pengerjaan Aktual (Kolom O): Otomatis rumus (=N{row}-M{row})
+ * 5. Performance Late (Kolom P) & Earlier (Kolom Q): Otomatis rumus selisih antara Estimasi (K) & Aktual (O)
  */
 
 const MONTH_NAMES_ID = [
@@ -100,9 +84,11 @@ function setupOfficeHeaderIfEmpty(sheet) {
   row3[0] = "* Apabila tidak memiliki Task ID, Task ID nya di isi \"Non Task\"";
   row3[6] = "* Diisikan ketika prepared task / breakdown task";
   row3[7] = "* Diisikan ketika prepared task / breakdown task , dapat disesuaikan ketika brief pagi";
+  row3[10] = "Format 4:00:00";
   row3[11] = "* Diisikan ketika prepared task / breakdown task. Format penulisan date-time ikuti yang sudah ada biar seragam dan gampang hitungnya";
   row3[12] = "* diisi ketika mulai task";
   row3[13] = "* diisi ketika selesai task";
+  row3[14] = "--- Automatic ---";
   row3[15] = "--- Automatic ---";
   row3[16] = "--- Automatic ---";
   row3[17] = "* Penjelasan kenapa molor atau lebih cepat";
@@ -192,6 +178,42 @@ function formatDateIndo(date) {
   return `${d}/${m}/${y}`;
 }
 
+// Helper konversi format durasi ke "HH:mm:ss"
+function parseDuration(val) {
+  if (!val || val === "-") return "04:00:00";
+  val = String(val).trim();
+  if (/^\d{1,2}:\d{2}:\d{2}$/.test(val)) {
+    return val.length === 7 ? "0" + val : val;
+  }
+  if (/^\d{1,2}:\d{2}$/.test(val)) {
+    return (val.length === 4 ? "0" + val : val) + ":00";
+  }
+  const match = val.match(/^(\d+(\.\d+)?)/);
+  if (match) {
+    const hours = parseFloat(match[1]);
+    const h = Math.floor(hours);
+    const m = Math.round((hours - h) * 60);
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`;
+  }
+  return val;
+}
+
+// Helper format datetime ke "DD/MM/YYYY HH:mm:ss"
+function parseDateTime(val, defaultTime) {
+  const now = new Date();
+  const todayStr = formatDateIndo(now);
+  if (!val || val === "-") {
+    return `${todayStr} ${defaultTime || Utilities.formatDate(now, "GMT+7", "HH:mm:ss")}`;
+  }
+  val = String(val).trim();
+  // Jika formatnya hanya jam (misal 13:04 atau 13:04:26)
+  if (val.length <= 8 && val.includes(":")) {
+    const timePart = val.length === 5 ? val + ":00" : val;
+    return `${todayStr} ${timePart}`;
+  }
+  return val;
+}
+
 function doPost(e) {
   try {
     let payload = {};
@@ -223,7 +245,7 @@ function doPost(e) {
       }
     }
 
-    // Jika belum ada header tanggal untuk hari ini, buat baris pembatas tanggal merah/maroon
+    // Jika belum ada header tanggal hari ini, buat baris pemisah merah/maroon
     if (!dateHeaderExists) {
       if (lastRow >= 4) {
         const prevRowRange = sheet.getRange(lastRow, 1, 1, TOTAL_COLS);
@@ -240,7 +262,9 @@ function doPost(e) {
       dateRange.setVerticalAlignment("middle");
     }
 
-    // Urutan 21 Kolom Format Kantor Presisi:
+    const nextRowNum = lastRow + 1;
+
+    // Nilai Kolom 1 - 10
     const taskId = payload.task_id || "Non Task";
     const status = payload.status || "Done";
     const project = payload.project || "-";
@@ -251,19 +275,33 @@ function doPost(e) {
     const prepWork = payload.prep_work || payload.details || "-";
     const askTo = payload.ask_to || "-";
     const question = payload.question || "-";
-    const estDuration = payload.est_duration || "-";
-    const estDateTime = payload.est_datetime || "-";
-    const actualStart = payload.start_time || Utilities.formatDate(now, "GMT+7", "HH:mm");
-    const actualEnd = payload.end_time || Utilities.formatDate(now, "GMT+7", "HH:mm");
-    const actualDuration = payload.actual_duration || "-";
-    const late = payload.late || "";
-    const earlier = payload.earlier || "";
+
+    // Kolom 11: Estimasi Lama Pengerjaan (format 4:00:00)
+    const estDuration = parseDuration(payload.est_duration);
+
+    // Kolom 12: Estimasi Hari, Tanggal dan Pukul (dd/MM/yyyy HH:mm:ss)
+    const estDateTime = parseDateTime(payload.est_datetime, "17:00:00");
+
+    // Kolom 13 & 14: Aktual Mulai & Selesai (dd/MM/yyyy HH:mm:ss)
+    const actualStart = parseDateTime(payload.start_time, Utilities.formatDate(now, "GMT+7", "HH:mm:ss"));
+    const actualEnd = parseDateTime(payload.end_time, Utilities.formatDate(now, "GMT+7", "HH:mm:ss"));
+
+    // Kolom 15: Lama Pengerjaan Aktual -> RUMUS OTOMATIS: =N{row}-M{row}
+    const formulaActualDuration = `=N${nextRowNum}-M${nextRowNum}`;
+
+    // Kolom 16 & 17: Performance Late & Earlier -> RUMUS OTOMATIS dari Estimasi (K) dan Aktual (O)
+    // Late: Jika Aktual (O) > Estimasi (K), hitung selisihnya, jika tidak beri "-"
+    const formulaLate = `=IF(O${nextRowNum}>K${nextRowNum}, O${nextRowNum}-K${nextRowNum}, "-")`;
+    // Earlier: Jika Aktual (O) < Estimasi (K), hitung selisihnya, jika tidak beri "-"
+    const formulaEarlier = `=IF(AND(ISNUMBER(O${nextRowNum}), O${nextRowNum}<K${nextRowNum}, O${nextRowNum}>0), K${nextRowNum}-O${nextRowNum}, "-")`;
+
+    // Kolom 18 - 21
     const why = payload.why || "-";
     const probTech = payload.problem_technical || "-";
     const probCollab = payload.problem_collab || "-";
     const probOther = payload.problem_other || "-";
 
-    // Masukkan baris data baru persis 21 kolom
+    // Masukkan baris data
     sheet.appendRow([
       taskId,
       status,
@@ -275,13 +313,13 @@ function doPost(e) {
       prepWork,
       askTo,
       question,
-      estDuration,
-      estDateTime,
-      actualStart,
-      actualEnd,
-      actualDuration,
-      late,
-      earlier,
+      estDuration,             // Kolom 11 (K)
+      estDateTime,             // Kolom 12 (L)
+      actualStart,             // Kolom 13 (M)
+      actualEnd,               // Kolom 14 (N)
+      formulaActualDuration,   // Kolom 15 (O) -> Rumus
+      formulaLate,             // Kolom 16 (P) -> Rumus
+      formulaEarlier,          // Kolom 17 (Q) -> Rumus
       why,
       probTech,
       probCollab,
@@ -294,9 +332,14 @@ function doPost(e) {
     rowRange.setWrap(true);
     rowRange.setBorder(true, true, true, true, true, true, "#d0d0d0", SpreadsheetApp.BorderStyle.SOLID);
 
+    // Format kolom waktu & tanggal agar tampil persis format kantor
+    sheet.getRange(newRow, 11).setNumberFormat("[h]:mm:ss");      // Kolom K
+    sheet.getRange(newRow, 12, 1, 3).setNumberFormat("dd/MM/yyyy HH:mm:ss"); // Kolom L, M, N
+    sheet.getRange(newRow, 15, 1, 3).setNumberFormat("[h]:mm:ss"); // Kolom O, P, Q (Durasi selisih)
+
     return ContentService.createTextOutput(JSON.stringify({
       status: "success",
-      message: "Log berhasil dicatat ke spreadsheet sesuai format presisi 21 kolom",
+      message: "Log berhasil dicatat dengan rumus otomatis aktual & performance",
       sheet_name: sheet.getName(),
       new_tab_created: isNewMonthTab,
       row: newRow
@@ -313,6 +356,6 @@ function doPost(e) {
 function doGet(e) {
   return ContentService.createTextOutput(JSON.stringify({
     status: "ok",
-    message: "lazy-log Webhook (Format Presisi 21 Kolom) siap menerima log!"
+    message: "lazy-log Webhook (Format Kantor Presisi + Rumus Otomatis) siap!"
   })).setMimeType(ContentService.MimeType.JSON);
 }

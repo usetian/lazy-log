@@ -284,31 +284,64 @@ def main():
 
     now = datetime.now()
     today_str = now.strftime("%d/%m/%Y")
-    current_time_str = now.strftime("%H:%M")
+    full_now_str = now.strftime("%d/%m/%Y %H:%M:%S")
 
-    # Susun payload 24 kolom format kantor
+    # Helper format durasi ke HH:mm:ss (contoh: 4:00:00)
+    def normalize_duration(val):
+        if not val or val == "-":
+            return "04:00:00"
+        val = str(val).strip()
+        if ":" in val:
+            parts = val.split(":")
+            if len(parts) == 2:
+                return f"{int(parts[0]):02d}:{int(parts[1]):02d}:00"
+            elif len(parts) == 3:
+                return f"{int(parts[0]):02d}:{int(parts[1]):02d}:{int(parts[2]):02d}"
+        try:
+            # Jika user memasukkan angka jam, misal "4" atau "4 jam"
+            num_str = "".join([c for c in val.split()[0] if c.isdigit() or c == '.'])
+            hours = float(num_str)
+            h = int(hours)
+            m = int(round((hours - h) * 60))
+            return f"{h:02d}:{m:02d}:00"
+        except Exception:
+            return val
+
+    # Helper format datetime ke DD/MM/YYYY HH:mm:ss
+    def normalize_datetime(val, default_time="17:00:00"):
+        if not val or val == "-":
+            return f"{today_str} {default_time}"
+        val = str(val).strip()
+        if len(val) <= 8 and ":" in val:
+            parts = val.split(":")
+            if len(parts) == 2:
+                return f"{today_str} {int(parts[0]):02d}:{int(parts[1]):02d}:00"
+            elif len(parts) == 3:
+                return f"{today_str} {int(parts[0]):02d}:{int(parts[1]):02d}:{int(parts[2]):02d}"
+        return val
+
+    est_duration_fmt = normalize_duration(args.est_duration)
+    est_datetime_fmt = normalize_datetime(args.est_datetime, "17:00:00")
+    start_time_fmt = normalize_datetime(args.start_time, now.strftime("%H:%M:%S"))
+    end_time_fmt = normalize_datetime(args.end_time, now.strftime("%H:%M:%S"))
+
+    # Susun payload 21 kolom format kantor
     payload = {
         "date_str": today_str,
         "task_id": args.task_id,
         "status": args.status,
         "project": project_name,
-        "platform": args.platform,
-        "task_type": args.task_type,
-        "role": args.role,
         "menu": args.menu,
-        "submenu": args.submenu,
         "task_title": args.task,
+        "task_type": args.task_type,
         "breakdown_task": args.details or f"Pengerjaan {args.task}",
         "prep_work": args.prep_work or args.details or f"Persiapan dan eksekusi {args.task}",
         "ask_to": args.ask_to,
         "question": args.question,
-        "est_duration": args.est_duration,
-        "est_datetime": args.est_datetime or f"{today_str} {current_time_str}",
-        "start_time": args.start_time or current_time_str,
-        "end_time": args.end_time or current_time_str,
-        "actual_duration": args.actual_duration or args.est_duration,
-        "late": "",      # Automatic di Sheet
-        "earlier": "",   # Automatic di Sheet
+        "est_duration": est_duration_fmt,
+        "est_datetime": est_datetime_fmt,
+        "start_time": start_time_fmt,
+        "end_time": end_time_fmt,
         "why": args.why,
         "problem_technical": args.problem_tech,
         "problem_collab": args.problem_collab,
