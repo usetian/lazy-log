@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-lazy-log: Script pengirim log aktivitas developer ke Google Sheets via Webhook.
+lazy-log: Script pengirim log aktivitas developer ke Google Sheets format kantor.
 Menggunakan hanya Python Standard Library (tanpa dependensi eksternal).
 """
 
@@ -78,7 +78,7 @@ def get_git_info(cwd=None):
             parts = line.strip().split(maxsplit=1)
             if len(parts) == 2:
                 changed.append(parts[1])
-        info["changed_files"] = changed[:10]  # batasi 10 file teratas
+        info["changed_files"] = changed[:10]
     except Exception:
         pass
 
@@ -93,7 +93,6 @@ def resolve_webhook_url(cli_url=None):
     if env_url:
         return env_url
 
-    # Cek config.json di folder script
     script_dir = os.path.dirname(os.path.abspath(__file__))
     candidates = [
         os.path.join(script_dir, "..", "config.json"),
@@ -133,7 +132,6 @@ def save_local_backup(payload):
 class SmartRedirectHandler(urllib.request.HTTPRedirectHandler):
     """Menangani redirect 302 dari Google Apps Script Web App."""
     def redirect_request(self, req, fp, code, msg, headers, newurl):
-        # Google Apps Script me-redirect POST ke GET URL
         if code in (301, 302, 303):
             return urllib.request.Request(
                 newurl,
@@ -161,40 +159,76 @@ def send_to_google_sheets(webhook_url, payload):
             return {"status": "success", "raw_response": res_body}
 
 def main():
-    parser = argparse.ArgumentParser(description="lazy-log: Kirim dev log ke Google Sheets")
-    parser.add_argument("--task", "-t", required=True, help="Ringkasan tugas/fitur yang dikerjakan")
-    parser.add_argument("--details", "-d", default="", help="Detail teknis pekerjaan")
-    parser.add_argument("--status", "-s", default="Completed", choices=["Completed", "In Progress", "Fixed", "Testing"], help="Status pekerjaan")
-    parser.add_argument("--project", "-p", default=None, help="Nama proyek (default: auto-detect dari folder/git)")
-    parser.add_argument("--developer", default=None, help="Nama developer (default: git config user.name)")
-    parser.add_argument("--files", nargs="*", default=None, help="Daftar file yang diubah")
-    parser.add_argument("--branch", default=None, help="Git branch")
-    parser.add_argument("--commit", default=None, help="Commit hash")
+    parser = argparse.ArgumentParser(description="lazy-log: Kirim dev log ke Google Sheets (Format Kantor)")
+    # Kolom Format Kantor
+    parser.add_argument("--task-id", default="Non Task", help="Task ID (default: 'Non Task')")
+    parser.add_argument("--status", "-s", default="Done", help="Status (Done, In Progress, etc.)")
+    parser.add_argument("--project", "-p", default=None, help="Nama Project")
+    parser.add_argument("--platform", default="Web", help="Platform (Web, Mobile, Backend, etc.)")
+    parser.add_argument("--task-type", default="Feature", help="Task Type (Feature, Bugfix, Refactor, etc.)")
+    parser.add_argument("--role", default="Developer", help="Role (Frontend, Backend, etc.)")
+    parser.add_argument("--menu", default="-", help="Menu")
+    parser.add_argument("--submenu", default="-", help="Submenu")
+    parser.add_argument("--task", "-t", required=True, help="Task Title / Judul Pekerjaan")
+    parser.add_argument("--details", "-d", default="", help="Breakdown Task / Rincian Pekerjaan")
+    parser.add_argument("--prep-work", default="", help="Yang akan dilakukan & perlu dilakukan")
+    parser.add_argument("--ask-to", default="-", help="Ask to")
+    parser.add_argument("--question", default="-", help="Question")
+    parser.add_argument("--est-duration", default="2 Jam", help="Estimasi Lama Pengerjaan")
+    parser.add_argument("--est-datetime", default="", help="Estimasi Hari, Tanggal dan Pukul")
+    parser.add_argument("--start-time", default="", help="Aktual Jam Mulai (misal: 09:00)")
+    parser.add_argument("--end-time", default="", help="Aktual Jam Selesai (misal: 11:00)")
+    parser.add_argument("--actual-duration", default="", help="Aktual Lama Pengerjaan")
+    parser.add_argument("--why", default="-", help="Alasan kenapa molor / lebih cepat")
+    parser.add_argument("--problem-tech", default="-", help="Kendala Teknis")
+    parser.add_argument("--problem-collab", default="-", help="Kendala Kolaborasi")
+    parser.add_argument("--problem-other", default="-", help="Kendala Lainnya")
+    
+    # Argumen Tambahan
     parser.add_argument("--webhook-url", default=None, help="Google Apps Script Web App URL")
-    parser.add_argument("--dry-run", action="store_true", help="Cetak payload tanpa mengirim ke Sheets")
+    parser.add_argument("--dry-run", action="store_true", help="Cetak payload tanpa mengirim")
 
     args = parser.parse_args()
 
     git_info = get_git_info()
+    now = datetime.now()
+    today_str = now.strftime("%d/%m/%Y")
+    current_time_str = now.strftime("%H:%M")
 
-    # Susun payload
+    # Susun payload 24 kolom format kantor
     payload = {
-        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "developer": args.developer or git_info["developer"],
+        "date_str": today_str,
+        "task_id": args.task_id,
+        "status": args.status,
         "project": args.project or git_info["project"],
-        "task": args.task,
-        "details": args.details,
-        "files_changed": args.files if args.files is not None else git_info["changed_files"],
-        "branch": args.branch or git_info["branch"],
-        "commit": args.commit or git_info["commit"],
-        "status": args.status
+        "platform": args.platform,
+        "task_type": args.task_type,
+        "role": args.role,
+        "menu": args.menu,
+        "submenu": args.submenu,
+        "task_title": args.task,
+        "breakdown_task": args.details or f"Pengerjaan {args.task}",
+        "prep_work": args.prep_work or args.details or f"Persiapan dan eksekusi {args.task}",
+        "ask_to": args.ask_to,
+        "question": args.question,
+        "est_duration": args.est_duration,
+        "est_datetime": args.est_datetime or f"{today_str} {current_time_str}",
+        "start_time": args.start_time or current_time_str,
+        "end_time": args.end_time or current_time_str,
+        "actual_duration": args.actual_duration or args.est_duration,
+        "late": "",      # Automatic di Sheet
+        "earlier": "",   # Automatic di Sheet
+        "why": args.why,
+        "problem_technical": args.problem_tech,
+        "problem_collab": args.problem_collab,
+        "problem_other": args.problem_other
     }
 
     # Simpan selalu ke backup lokal
     save_local_backup(payload)
 
     if args.dry_run:
-        print("[lazy-log DRY RUN] Payload:")
+        print("[lazy-log DRY RUN - Format Kantor] Payload:")
         print(json.dumps(payload, indent=2, ensure_ascii=False))
         return
 
@@ -202,20 +236,20 @@ def main():
 
     if not webhook_url or "script.google.com" not in webhook_url:
         print("\n⚠️  [lazy-log] Webhook URL Google Sheets belum diatur!")
-        print("Log sudah disimpan di backup lokal: ~/.lazy-log/history.jsonl")
-        print("\nUntuk menghubungkan ke Google Sheets:")
-        print("1. Buat Webhook via Google Apps Script (lihat folder google-apps-script/Code.gs)")
-        print("2. Set URL di `config.json` atau jalankan:")
+        print("Log sudah disimpan di backup lokal: .local_history.jsonl")
+        print("\nUntuk menghubungkan ke Google Sheets kantor:")
+        print("1. Salin kode di `google-apps-script/Code.gs` ke Spreadsheet kantor (Extensions > Apps Script)")
+        print("2. Deploy Web App dan set URL di `config.json` atau jalankan:")
         print("   export LAZY_LOG_WEBHOOK_URL='https://script.google.com/macros/s/.../exec'\n")
         return
 
     try:
-        print(f"📡 Mengirim log '{payload['task']}' ke Google Sheets...")
+        print(f"📡 Mengirim log kantor '{payload['task_title']}' ke Google Sheets...")
         res = send_to_google_sheets(webhook_url, payload)
-        print(f"✅ Berhasil dicatat ke Google Sheets! [Status: {payload['status']}]")
+        print(f"✅ Berhasil dicatat ke Google Sheets! [Tab: {res.get('sheet_name', 'Bulan Aktif')}, Baris: {res.get('row', 'Baru')}]")
     except Exception as e:
         sys.stderr.write(f"❌ Gagal mengirim ke Google Sheets: {e}\n")
-        sys.stderr.write("Catatan: Log tetap aman tersimpan di backup lokal ~/.lazy-log/history.jsonl\n")
+        sys.stderr.write("Catatan: Log tetap aman tersimpan di backup lokal.\n")
         sys.exit(1)
 
 if __name__ == "__main__":
