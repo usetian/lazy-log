@@ -1,16 +1,15 @@
 /**
  * Google Apps Script for lazy-log (Format Kantor)
  * 
- * Fitur:
- * 1. Otomatis mencari Tab Sheet berdasarkan Bulan & Tahun berjalan (misal: "Oktober 2026", "October 2026", "Okt 2026").
- * 2. AUTO-DUPLICATE TEMPLATE: Jika tab bulan baru belum ada, otomatis menduplikasi tab "Template"
- *    atau tab bulan sebelumnya, merename menjadi bulan baru, dan membersihkan data lama (baris 4+)
- *    sehingga baris 1-3 (header grup, judul kolom, catatan hijau kantor) tetap 100% utuh!
- * 3. Otomatis membuat baris pembatas tanggal merah/maroon (seperti baris 4 pada gambar) jika hari ini belum tercatat.
- * 4. Memetakan 24 kolom format kantor secara otomatis dan presisi.
+ * Fitur Lengkap:
+ * 1. Otomatis mencari Tab Sheet berdasarkan Bulan & Tahun berjalan (misal: "Oktober 2026").
+ * 2. AUTO-DUPLICATE TEMPLATE: Jika ganti bulan, otomatis menduplikasi tab sebelumnya / Template.
+ * 3. AUTO-SETUP BARIS HEADER: Jika sheet masih kosong melompong (sheet baru), otomatis membangun
+ *    3 baris header (grup header, judul kolom, dan baris catatan hijau kantor) persis seperti template.
+ * 4. BARIS PEMISAH HARIAN: Otomatis membuat baris tanggal merah/maroon (seperti baris 4 pada gambar).
+ * 5. AUTO-FILL 24 KOLOM: Memetakan 24 kolom data kerja developer secara otomatis dan rapi.
  */
 
-// Konfigurasi Nama Tab Bulan (Bahasa Indonesia & English)
 const MONTH_NAMES_ID = [
   "Januari", "Februari", "Maret", "April", "Mei", "Juni",
   "Juli", "Agustus", "September", "Oktober", "November", "Desember"
@@ -20,15 +19,75 @@ const MONTH_NAMES_EN = [
   "July", "August", "September", "October", "November", "December"
 ];
 
+const COLUMN_TITLES = [
+  "Task ID", "Status", "Project", "Platform", "Task Type", "Role", "Menu", "Submenu", 
+  "Task Title", "Breakdown Task", "Yang akan Dilakukan dan Perlu Dilakukan", "Ask to", 
+  "Question", "Lama Pengerjaan", "Hari, Tanggal dan Pukul", "Mulai", "Selesai", 
+  "Lama Pengerjaan", "Late", "Earlier", "Why", "Technical", "Collaboration", "Other"
+];
+
 /**
- * Mencari tab bulan ini, atau otomatis menduplikasi tab template jika bulan baru.
+ * Membangun 3 baris header kantor jika sheet masih kosong
  */
+function setupOfficeHeaderIfEmpty(sheet) {
+  if (sheet.getLastRow() >= 3) return;
+
+  // Baris 1: Group Header
+  const row1 = new Array(24).fill("");
+  row1[0] = "Task detail and Action"; // Col A - J
+  row1[10] = "Prep Work";             // Col K - M
+  row1[13] = "Estimasi Penyelesaian"; // Col N - O
+  row1[15] = "Aktual Selesai";        // Col P - R
+  row1[18] = "Performance";           // Col S - U
+  row1[21] = "Problem Occur";         // Col V - X
+  sheet.appendRow(row1);
+
+  // Merge dan Styling Row 1
+  sheet.getRange(1, 1, 1, 10).merge().setBackground("#d9e1f2").setFontWeight("bold").setHorizontalAlignment("center");
+  sheet.getRange(1, 11, 1, 3).merge().setBackground("#b4c6e7").setFontWeight("bold").setHorizontalAlignment("center");
+  sheet.getRange(1, 14, 1, 2).merge().setBackground("#8ea9db").setFontWeight("bold").setHorizontalAlignment("center");
+  sheet.getRange(1, 16, 1, 3).merge().setBackground("#fce4d6").setFontWeight("bold").setHorizontalAlignment("center");
+  sheet.getRange(1, 19, 1, 3).merge().setBackground("#f8cbad").setFontWeight("bold").setHorizontalAlignment("center");
+  sheet.getRange(1, 22, 1, 3).merge().setBackground("#f4b084").setFontWeight("bold").setHorizontalAlignment("center");
+
+  // Baris 2: Column Titles
+  sheet.appendRow(COLUMN_TITLES);
+  const row2Range = sheet.getRange(2, 1, 1, 24);
+  row2Range.setFontWeight("bold").setHorizontalAlignment("center").setVerticalAlignment("middle");
+  sheet.getRange(2, 1, 1, 10).setBackground("#d9e1f2");
+  sheet.getRange(2, 11, 1, 3).setBackground("#b4c6e7");
+  sheet.getRange(2, 14, 1, 2).setBackground("#8ea9db");
+  sheet.getRange(2, 16, 1, 3).setBackground("#fce4d6");
+  sheet.getRange(2, 19, 1, 3).setBackground("#f8cbad");
+  sheet.getRange(2, 22, 1, 3).setBackground("#f4b084");
+
+  // Baris 3: Catatan Panduan Hijau (Sesuai Gambar)
+  const row3 = new Array(24).fill("");
+  row3[0] = "* Apabila tidak memiliki Task ID, Task ID nya di isi \"Non Task\"";
+  row3[9] = "* Diisikan ketika prepared task / breakdown task";
+  row3[10] = "* Diisikan ketika prepared task / breakdown task , dapat disesuaikan ketika brief pagi";
+  row3[14] = "* Diisikan ketika prepared task / breakdown task. Format penulisan date-time ikuti yang sudah ada biar seragam dan gampang hitungnya";
+  row3[15] = "* diisi ketika mulai task";
+  row3[16] = "* diisi ketika selesai task";
+  row3[18] = "--- Automatic ---";
+  row3[19] = "--- Automatic ---";
+  row3[21] = "* Penjelasan kenapa molor atau lebih cepat";
+  row3[22] = "* Tuliskan masalah - masalah yang timbul ketika melaksanakan task";
+  sheet.appendRow(row3);
+
+  const row3Range = sheet.getRange(3, 1, 1, 24);
+  row3Range.setBackground("#c6efce").setFontColor("#006100").setFontSize(9).setVerticalAlignment("middle");
+
+  // Border & Freeze
+  sheet.getRange(1, 1, 3, 24).setBorder(true, true, true, true, true, true, "#808080", SpreadsheetApp.BorderStyle.SOLID);
+  sheet.setFrozenRows(3);
+}
+
 function getTargetSheet(ss) {
   const now = new Date();
   const monthIdx = now.getMonth();
   const year = now.getFullYear();
-
-  const standardName = `${MONTH_NAMES_ID[monthIdx]} ${year}`; // Contoh: "Oktober 2026"
+  const standardName = `${MONTH_NAMES_ID[monthIdx]} ${year}`;
 
   const sheets = ss.getSheets();
   const patterns = [
@@ -42,20 +101,19 @@ function getTargetSheet(ss) {
     new RegExp(`^${MONTH_NAMES_EN[monthIdx]}$`, 'i')
   ];
 
-  // 1. Cek apakah tab sheet bulan ini sudah ada
+  // 1. Cek tab yang sudah cocok
   for (const sheet of sheets) {
     const sName = sheet.getName().trim();
     for (const pat of patterns) {
       if (pat.test(sName)) {
+        setupOfficeHeaderIfEmpty(sheet);
         return { sheet: sheet, isNew: false };
       }
     }
   }
 
-  // 2. JIKA BULAN BARU BELUM ADA: Auto-duplicate tab template atau tab terakhir
+  // 2. Jika belum ada tab bulan ini -> Duplikasi Template atau buat tab baru
   let sourceSheet = null;
-
-  // Cari tab bernama "Template" atau "Master" terlebih dahulu
   for (const sheet of sheets) {
     const name = sheet.getName().toLowerCase();
     if (name.includes("template") || name.includes("master")) {
@@ -64,32 +122,39 @@ function getTargetSheet(ss) {
     }
   }
 
-  // Jika tidak ada tab Template, pakai sheet terakhir yang ada (biasanya bulan sebelumnya)
+  // Jika tidak ada template, pakai sheet terakhir yang sudah punya header
   if (!sourceSheet && sheets.length > 0) {
-    sourceSheet = sheets[sheets.length - 1];
+    for (let i = sheets.length - 1; i >= 0; i--) {
+      if (sheets[i].getLastRow() >= 3) {
+        sourceSheet = sheets[i];
+        break;
+      }
+    }
   }
 
   if (sourceSheet) {
-    // Gandakan sheet sumber dengan semua formula, header 1-3, lebar kolom, dan styling
     const newSheet = sourceSheet.copyTo(ss);
     newSheet.setName(standardName);
-
-    // Pindahkan tab baru ke urutan paling belakang
     ss.setActiveSheet(newSheet);
     ss.moveActiveSheet(ss.getSheets().length);
 
-    // Bersihkan isi data bulan lalu (hapus dari baris 4 ke bawah agar bersih)
+    // Bersihkan baris data 4 ke bawah
     const lastRow = newSheet.getLastRow();
     if (lastRow >= 4) {
       newSheet.deleteRows(4, lastRow - 3);
     }
-
     return { sheet: newSheet, isNew: true };
   }
 
-  // Fallback darurat jika spreadsheet benar-benar kosong
-  const fallbackSheet = ss.insertSheet(standardName);
-  return { sheet: fallbackSheet, isNew: true };
+  // Jika spreadsheet benar-benar baru kosong
+  let targetSheet = sheets[0];
+  if (targetSheet.getName().toLowerCase().startsWith("sheet1") || targetSheet.getName().toLowerCase().startsWith("halaman1")) {
+    targetSheet.setName(standardName);
+  } else {
+    targetSheet = ss.insertSheet(standardName);
+  }
+  setupOfficeHeaderIfEmpty(targetSheet);
+  return { sheet: targetSheet, isNew: true };
 }
 
 function formatDateIndo(date) {
@@ -133,7 +198,6 @@ function doPost(e) {
 
     // Jika belum ada header tanggal untuk hari ini, buat baris pembatas tanggal merah/maroon
     if (!dateHeaderExists) {
-      // Jika baris sebelumnya adalah data kemarin, beri garis bawah tebal pada data hari kemarin
       if (lastRow >= 4) {
         const prevRowRange = sheet.getRange(lastRow, 1, 1, 24);
         prevRowRange.setBorder(null, null, true, null, null, null, "#000000", SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
@@ -142,10 +206,9 @@ function doPost(e) {
       sheet.appendRow([todayStr]);
       lastRow = sheet.getLastRow();
       
-      // Styling baris pemisah tanggal (Merah gelap/Maroon persis seperti di gambar)
       const dateRange = sheet.getRange(lastRow, 1, 1, 24);
       dateRange.setBackground("#8b0000"); // Dark Red / Maroon
-      dateRange.setFontColor("#ffffff"); // Font putih
+      dateRange.setFontColor("#ffffff");
       dateRange.setFontWeight("bold");
       dateRange.setVerticalAlignment("middle");
     }
@@ -212,7 +275,7 @@ function doPost(e) {
 
     return ContentService.createTextOutput(JSON.stringify({
       status: "success",
-      message: "Log berhasil dicatat ke spreadsheet kantor",
+      message: "Log berhasil dicatat ke spreadsheet",
       sheet_name: sheet.getName(),
       new_tab_created: isNewMonthTab,
       row: newRow
@@ -229,6 +292,6 @@ function doPost(e) {
 function doGet(e) {
   return ContentService.createTextOutput(JSON.stringify({
     status: "ok",
-    message: "lazy-log Webhook (Format Kantor) siap menerima log dengan auto-duplicate tab bulanan!"
+    message: "lazy-log Webhook siap menerima log!"
   })).setMimeType(ContentService.MimeType.JSON);
 }
