@@ -1,5 +1,15 @@
 {
   "webhook_url": "https://script.google.com/macros/s/AKfycbxXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX/exec",
   "developer_name": "",
-  "default_status": "Completed"
+  "default_status": "Done",
+  "allowed_projects": [
+    "nama-repo-kantor-1",
+    "nama-repo-kantor-2"
+  ],
+  "ignored_projects": [
+    "personal-*",
+    "research",
+    "experiment"
+  ],
+  "require_project_opt_in": false
 }

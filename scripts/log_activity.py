@@ -2,6 +2,7 @@
 """
 lazy-log: Script pengirim log aktivitas developer ke Google Sheets format kantor.
 Menggunakan hanya Python Standard Library (tanpa dependensi eksternal).
+Mendukung proteksi & filter project agar hanya project kantor yang dicatat.
 """
 
 import os
@@ -20,7 +21,8 @@ def get_git_info(cwd=None):
         "branch": None,
         "commit": None,
         "developer": None,
-        "changed_files": []
+        "changed_files": [],
+        "repo_root": None
     }
     
     # 1. Project name dari folder root git atau folder saat ini
@@ -29,9 +31,11 @@ def get_git_info(cwd=None):
             ["git", "rev-parse", "--show-toplevel"], 
             cwd=cwd, stderr=subprocess.DEVNULL
         ).decode("utf-8").strip()
+        info["repo_root"] = toplevel
         info["project"] = os.path.basename(toplevel)
     except Exception:
         info["project"] = os.path.basename(os.getcwd())
+        info["repo_root"] = os.getcwd()
 
     # 2. Git Branch
     try:
@@ -84,15 +88,8 @@ def get_git_info(cwd=None):
 
     return info
 
-def resolve_webhook_url(cli_url=None):
-    """Mencari Webhook URL dari CLI, env, atau config file."""
-    if cli_url:
-        return cli_url
-
-    env_url = os.environ.get("LAZY_LOG_WEBHOOK_URL")
-    if env_url:
-        return env_url
-
+def load_config():
+    """Membaca konfigurasi dari file config.json."""
     script_dir = os.path.dirname(os.path.abspath(__file__))
     candidates = [
         os.path.join(script_dir, "..", "config.json"),
@@ -105,14 +102,64 @@ def resolve_webhook_url(cli_url=None):
         if os.path.exists(path):
             try:
                 with open(path, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                    url = data.get("webhook_url")
-                    if url:
-                        return url
+                    return json.load(f), path
             except Exception:
                 continue
 
-    return None
+    return {}, None
+
+def resolve_webhook_url(config, cli_url=None):
+    """Mencari Webhook URL dari CLI, env, atau config."""
+    if cli_url:
+        return cli_url
+
+    env_url = os.environ.get("LAZY_LOG_WEBHOOK_URL")
+    if env_url:
+        return env_url
+
+    return config.get("webhook_url")
+
+def is_project_allowed(project_name, repo_root, config, force=False):
+    """
+    Memvalidasi apakah project saat ini diizinkan untuk dicatat ke Google Sheets kantor.
+    Returns: (is_allowed: bool, reason: str)
+    """
+    if force:
+        return True, "Diizinkan melalui flag --force"
+
+    # 1. Cek keberadaan marker file .lazy-log di root repo
+    if repo_root:
+        marker_files = [".lazy-log", ".lazy-log.json"]
+        for marker in marker_files:
+            if os.path.exists(os.path.join(repo_root, marker)):
+                return True, f"Project diizinkan (ditemukan file penanda '{marker}')"
+
+    # 2. Cek daftar ignored_projects
+    ignored = config.get("ignored_projects", [])
+    proj_lower = (project_name or "").lower().strip()
+    for ign in ignored:
+        ign_clean = ign.lower().strip()
+        if ign_clean.endswith("*") and proj_lower.startswith(ign_clean[:-1]):
+            return False, f"Project '{project_name}' cocok dengan filter ignored '{ign}'"
+        elif ign_clean == proj_lower:
+            return False, f"Project '{project_name}' ada dalam daftar ignored_projects"
+
+    # 3. Cek daftar allowed_projects
+    allowed = config.get("allowed_projects", [])
+    if allowed:
+        for al in allowed:
+            al_clean = al.lower().strip()
+            if al_clean.endswith("*") and proj_lower.startswith(al_clean[:-1]):
+                return True, f"Project '{project_name}' cocok dengan allowed filter '{al}'"
+            elif al_clean == proj_lower:
+                return True, f"Project '{project_name}' terdaftar di allowed_projects"
+        return False, f"Project '{project_name}' TIDAK terdaftar di allowed_projects"
+
+    # 4. Cek apakah require_project_opt_in aktif
+    if config.get("require_project_opt_in", False):
+        return False, f"Mode 'require_project_opt_in' aktif. Jalankan 'lazy-log --enable-project' pada project ini untuk mengizinkan."
+
+    return True, "Filter lolos (default allow)"
 
 def save_local_backup(payload):
     """Menyimpan log ke file lokal sebagai cadangan."""
@@ -160,6 +207,11 @@ def send_to_google_sheets(webhook_url, payload):
 
 def main():
     parser = argparse.ArgumentParser(description="lazy-log: Kirim dev log ke Google Sheets (Format Kantor)")
+    
+    # Perintah Manajemen Project
+    parser.add_argument("--enable-project", action="store_true", help="Tandai project di folder ini sebagai project kantor yang aktif (.lazy-log)")
+    parser.add_argument("--disable-project", action="store_true", help="Hapus tanda project kantor dari folder ini")
+
     # Kolom Format Kantor
     parser.add_argument("--task-id", default="Non Task", help="Task ID (default: 'Non Task')")
     parser.add_argument("--status", "-s", default="Done", help="Status (Done, In Progress, etc.)")
@@ -169,7 +221,7 @@ def main():
     parser.add_argument("--role", default="Developer", help="Role (Frontend, Backend, etc.)")
     parser.add_argument("--menu", default="-", help="Menu")
     parser.add_argument("--submenu", default="-", help="Submenu")
-    parser.add_argument("--task", "-t", required=True, help="Task Title / Judul Pekerjaan")
+    parser.add_argument("--task", "-t", default=None, help="Task Title / Judul Pekerjaan")
     parser.add_argument("--details", "-d", default="", help="Breakdown Task / Rincian Pekerjaan")
     parser.add_argument("--prep-work", default="", help="Yang akan dilakukan & perlu dilakukan")
     parser.add_argument("--ask-to", default="-", help="Ask to")
@@ -184,13 +236,52 @@ def main():
     parser.add_argument("--problem-collab", default="-", help="Kendala Kolaborasi")
     parser.add_argument("--problem-other", default="-", help="Kendala Lainnya")
     
-    # Argumen Tambahan
+    # Argumen Kontrol
+    parser.add_argument("--force", action="store_true", help="Paksa kirim meskipun project tidak ada di daftar allowed_projects")
     parser.add_argument("--webhook-url", default=None, help="Google Apps Script Web App URL")
     parser.add_argument("--dry-run", action="store_true", help="Cetak payload tanpa mengirim")
 
     args = parser.parse_args()
 
     git_info = get_git_info()
+    config, config_path = load_config()
+
+    # Fitur enable/disable project opt-in
+    if args.enable_project:
+        target_marker = os.path.join(git_info["repo_root"], ".lazy-log")
+        with open(target_marker, "w", encoding="utf-8") as f:
+            f.write(f"# lazy-log enabled for project: {git_info['project']}\n")
+        print(f"✅ Project '{git_info['project']}' berhasil diaktifkan untuk pencatatan lazy-log!")
+        print(f"📍 File penanda dibuat di: {target_marker}")
+        return
+
+    if args.disable_project:
+        target_marker = os.path.join(git_info["repo_root"], ".lazy-log")
+        if os.path.exists(target_marker):
+            os.remove(target_marker)
+            print(f"🚫 Project '{git_info['project']}' dinonaktifkan dari lazy-log.")
+        else:
+            print(f"ℹ️  File penanda .lazy-log tidak ditemukan di project ini.")
+        return
+
+    if not args.task:
+        parser.print_help()
+        sys.exit(1)
+
+    project_name = args.project or git_info["project"]
+
+    # VALIDASI FILTER PROJECT KANTOR:
+    allowed, reason = is_project_allowed(project_name, git_info["repo_root"], config, force=args.force)
+    if not allowed:
+        print("\n🔒 [lazy-log PROTECTED] Pencatatan ke Google Sheets Kantor DILEWATI!")
+        print(f"Alasan: {reason}")
+        print("Aktivitas project ini TIDAK dikirim ke spreadsheet kantor demi privasi.")
+        print("\nTip:")
+        print(f"- Untuk mengizinkan project ini, daftarkan '{project_name}' ke `allowed_projects` di config.json")
+        print(f"- Atau jalankan: python3 log_activity.py --enable-project (membuat file .lazy-log di repo ini)")
+        print(f"- Atau gunakan flag --force jika ingin sekali kirim.")
+        return
+
     now = datetime.now()
     today_str = now.strftime("%d/%m/%Y")
     current_time_str = now.strftime("%H:%M")
@@ -200,7 +291,7 @@ def main():
         "date_str": today_str,
         "task_id": args.task_id,
         "status": args.status,
-        "project": args.project or git_info["project"],
+        "project": project_name,
         "platform": args.platform,
         "task_type": args.task_type,
         "role": args.role,
@@ -232,7 +323,7 @@ def main():
         print(json.dumps(payload, indent=2, ensure_ascii=False))
         return
 
-    webhook_url = resolve_webhook_url(args.webhook_url)
+    webhook_url = resolve_webhook_url(config, args.webhook_url)
 
     if not webhook_url or "script.google.com" not in webhook_url:
         print("\n⚠️  [lazy-log] Webhook URL Google Sheets belum diatur!")
@@ -244,7 +335,7 @@ def main():
         return
 
     try:
-        print(f"📡 Mengirim log kantor '{payload['task_title']}' ke Google Sheets...")
+        print(f"📡 Mengirim log kantor '{payload['task_title']}' ({project_name}) ke Google Sheets...")
         res = send_to_google_sheets(webhook_url, payload)
         print(f"✅ Berhasil dicatat ke Google Sheets! [Tab: {res.get('sheet_name', 'Bulan Aktif')}, Baris: {res.get('row', 'Baru')}]")
     except Exception as e:

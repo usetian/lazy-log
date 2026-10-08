@@ -51,6 +51,17 @@ python3 "<path-to-lazy-log>/scripts/log_activity.py" \
   --status "Done"
 ```
 
+## Proteksi & Filter Project Kantor (Privasi)
+
+Agar pekerjaan personal, riset pribadi, atau proyek non-kantor **tidak terkirim** ke spreadsheet kantor:
+1. **Daftar Project Terpilih (Whitelist):**
+   Hanya project yang ada di `allowed_projects` dalam `config.json` yang akan dikirim ke Sheets.
+2. **Atau Tandai Repo Kantor (.lazy-log):**
+   Di repo kantor, jalankan:
+   `python3 "<path-to-lazy-log>/scripts/log_activity.py" --enable-project`
+   Ini membuat file tanda `.lazy-log` di repo kantor Anda.
+3. Jika script dijalankan di luar project kantor yang diizinkan, script otomatis membatalkan pengiriman dan menampilkan pesan proteksi.
+
 ## Konfigurasi Webhook Kantor
 
 1. Salin isi [google-apps-script/Code.gs](file:///Users/redantcolony/Workspace/research/lazy-log/google-apps-script/Code.gs) ke menu **Extensions > Apps Script** di Google Sheet kantor Anda.
