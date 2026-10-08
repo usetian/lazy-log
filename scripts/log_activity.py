@@ -237,6 +237,7 @@ def main():
     parser.add_argument("--problem-other", default="-", help="Kendala Lainnya")
     
     # Argumen Kontrol
+    parser.add_argument("--date", default=None, help="Tanggal pengerjaan (format: DD/MM/YYYY, default: hari ini)")
     parser.add_argument("--force", action="store_true", help="Paksa kirim meskipun project tidak ada di daftar allowed_projects")
     parser.add_argument("--webhook-url", default=None, help="Google Apps Script Web App URL")
     parser.add_argument("--dry-run", action="store_true", help="Cetak payload tanpa mengirim")
@@ -283,7 +284,7 @@ def main():
         return
 
     now = datetime.now()
-    today_str = now.strftime("%d/%m/%Y")
+    today_str = args.date if args.date else now.strftime("%d/%m/%Y")
     full_now_str = now.strftime("%d/%m/%Y %H:%M:%S")
 
     # Helper format durasi ke HH:mm:ss (contoh: 4:00:00)
