@@ -23,6 +23,36 @@ Sebagai developer, kita sering lupa mengisi timesheet harian atau malas merangku
 
 ---
 
+## 🔍 Dari Mana Data Log Didapat? (Sumber Data)
+
+`lazy-log` mengumpulkan data secara otomatis dan cerdas dari 4 sumber utama tanpa Anda perlu mengisi manual:
+
+1. **🧠 Analisis Konteks Kodingan & Diff File (AI Real-Time):**
+   * Saat Anda coding bersama AI Antigravity, AI menganalisis perubahan kode yang baru saja dikerjakan (`git diff`, file-file yang baru dibuat, diedit, atau di-refactor).
+   * AI menyimpulkan secara otomatis:
+     * **Task Title:** Judul pekerjaan yang jelas.
+     * **Breakdown Task:** Rincian teknis apa yang diubah/dibuat.
+     * **Yang akan Dilakukan dan Perlu Dilakukan:** Rencana dan langkah persiapan teknis.
+     * **Menu / Modul:** Modul aplikasi yang relevan (misal: *Auth*, *Farmer*, *Dashboard*).
+
+2. **💻 Metadata Git Lokal di Laptop Anda (Otomatis):**
+   * **Project:** Nama repositori Git aktif (`git rev-parse --show-toplevel`).
+   * **Developer:** Nama developer dari konfigurasi Git laptop Anda (`git config user.name`).
+   * **Git Branch & Commit Hash:** Branch aktif (`git branch --show-current`) dan commit hash (`git rev-parse --short HEAD`).
+   * **Files Changed:** Daftar file yang termodifikasi di workspace (`git status --porcelain`).
+
+3. **📜 Riwayat Git Log Lampau (Untuk Rekap Mingguan/Harian):**
+   * Saat Anda meminta rekap (contoh: *"Tolong rekap pekerjaan saya seminggu terakhir"*), AI membaca `git log --author="..." --since="7 days ago"` di repositori Anda.
+   * AI mengelompokkan pesan commit per hari (Senin s/d Jumat) dan menerjemahkannya ke format log kantor.
+
+4. **💬 Instruksi Tambahan dari Anda (Opsional):**
+   * Anda bisa menambahkan konteks langsung di chat jika diperlukan, misalnya:
+     * Nomor tiket: *"Task ID: JAV-101"* (jika tidak disebut, otomatis diisi `"Non Task"` sesuai aturan kantor).
+     * Jam kerja khusus: *"Mulai jam 09:00 selesai jam 13:00"*.
+     * Kendala: *"Kendala: API third-party sempat timeout"*.
+
+---
+
 ## 🚀 Panduan Integrasi Google Sheets
 
 Pilih salah satu dari 2 skenario di bawah:
